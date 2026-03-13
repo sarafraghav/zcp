@@ -50,6 +50,9 @@ class ProjectResponse(BaseModel):
     name: str
     manifest: dict
     created_at: datetime
+    databases: list[NeonDatabaseResponse] = []
+    redis_instances: list[RedisResponse] = []
+    deployed_apps: list[DeployedAppResponse] = []
 
 
 class OrganizationResponse(BaseModel):
@@ -87,6 +90,7 @@ def get_dashboard(user) -> DashboardResponse:
 
     organizations = []
     for m in mappings:
+        # Build flat resource lists (kept for backward compat)
         databases = []
         for d in m.organization.databases.all():
             databases.append(NeonDatabaseResponse(
@@ -133,13 +137,40 @@ def get_dashboard(user) -> DashboardResponse:
                 created_at=da.created_at,
             ))
 
+        # Build project-grouped resources
+        # Index resources by their zcp_project FK
+        db_by_project: dict[Optional[str], list[NeonDatabaseResponse]] = {}
+        for d in m.organization.databases.all():
+            pk = str(d.zcp_project_id) if d.zcp_project_id else None
+            resp = next((db for db in databases if db.id == str(d.id)), None)
+            if resp:
+                db_by_project.setdefault(pk, []).append(resp)
+
+        redis_by_project: dict[Optional[str], list[RedisResponse]] = {}
+        for rdb in m.organization.redis_instances.all():
+            pk = str(rdb.zcp_project_id) if rdb.zcp_project_id else None
+            resp = next((r for r in redis_instances if r.id == str(rdb.id)), None)
+            if resp:
+                redis_by_project.setdefault(pk, []).append(resp)
+
+        apps_by_project: dict[Optional[str], list[DeployedAppResponse]] = {}
+        for da in m.organization.deployed_apps.all():
+            pk = str(da.zcp_project_id) if da.zcp_project_id else None
+            resp = next((a for a in deployed_apps if a.id == str(da.id)), None)
+            if resp:
+                apps_by_project.setdefault(pk, []).append(resp)
+
         projects = []
         for p in m.organization.projects.all():
+            pid = str(p.id)
             projects.append(ProjectResponse(
-                id=str(p.id),
+                id=pid,
                 name=p.name,
                 manifest=p.manifest,
                 created_at=p.created_at,
+                databases=db_by_project.get(pid, []),
+                redis_instances=redis_by_project.get(pid, []),
+                deployed_apps=apps_by_project.get(pid, []),
             ))
 
         organizations.append(OrganizationResponse(

@@ -21,6 +21,7 @@ from apps.workflows.signup import (
 )
 from apps.workflows.deploy import (
     DeployWorkflow,
+    ProjectDeployWorkflow,
     create_project_activity,
     clone_repo_activity,
     modal_deploy_activity,
@@ -35,7 +36,7 @@ async def main():
     worker = Worker(
         client,
         task_queue=TASK_QUEUE,
-        workflows=[SignupWorkflow, DeployWorkflow],
+        workflows=[SignupWorkflow, DeployWorkflow, ProjectDeployWorkflow],
         activities=[
             create_organization_activity,
             link_user_to_org_activity,

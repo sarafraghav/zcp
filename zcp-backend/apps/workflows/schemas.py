@@ -92,6 +92,13 @@ class CleanupSourceInput(BaseModel):
     source_path: str
 
 
+# --- ProjectDeployWorkflow input ---
+
+class ProjectDeployInput(BaseModel):
+    org_id: str
+    slug: str
+
+
 # --- DeployWorkflow input/output ---
 
 class DeployWorkflowInput(BaseModel):

@@ -43,6 +43,26 @@ async def start_signup_workflow(
     return SignupStartedResponse(workflow_id=workflow_id)
 
 
+async def start_project_deploy_workflow(
+    org_id: str,
+    slug: str,
+) -> SignupStartedResponse:
+    """Start a deploy workflow for a new project within an existing org."""
+    from apps.workflows.client import get_temporal_client
+    from apps.workflows.deploy import ProjectDeployWorkflow
+    from apps.workflows.schemas import ProjectDeployInput
+
+    workflow_id = f"project-{slug}-{_uuid.uuid4().hex[:8]}"
+    client = await get_temporal_client()
+    await client.start_workflow(
+        ProjectDeployWorkflow.run,
+        ProjectDeployInput(org_id=org_id, slug=slug),
+        id=workflow_id,
+        task_queue=TASK_QUEUE,
+    )
+    return SignupStartedResponse(workflow_id=workflow_id)
+
+
 async def get_workflow_status(workflow_id: str) -> WorkflowStatusResponse:
     from apps.workflows.client import get_temporal_client
 

@@ -16,6 +16,7 @@ from apps.workflows.schemas import (
     CloneRepoInput, CloneRepoOutput,
     ModalDeployInput, ModalDeployOutput,
     CleanupSourceInput,
+    ProjectDeployInput,
     DeployWorkflowInput, DeployWorkflowOutput,
     ProvisionNeonDatabaseInput, ProvisionNeonDatabaseOutput,
     ProvisionRedisInput, ProvisionRedisOutput,
@@ -273,3 +274,47 @@ class DeployWorkflow:
             app_name=f"{app_name}-{params.slug}",
             service_urls=deploy_result.service_urls,
         )
+
+
+# ---------------------------------------------------------------------------
+# ProjectDeployWorkflow — clone sample repo → DeployWorkflow → cleanup
+# ---------------------------------------------------------------------------
+
+@workflow.defn
+class ProjectDeployWorkflow:
+    """Deploys a new project within an existing org."""
+
+    @workflow.run
+    async def run(self, params: ProjectDeployInput) -> DeployWorkflowOutput:
+        retry = RetryPolicy(maximum_attempts=3)
+
+        # 1. Clone sample repo (empty params → reads from Django settings)
+        clone_result: CloneRepoOutput = await workflow.execute_activity(
+            clone_repo_activity,
+            CloneRepoInput(repo_url="", branch="", commit=""),
+            start_to_close_timeout=timedelta(minutes=2),
+            retry_policy=retry,
+        )
+
+        # 2. Deploy via child workflow
+        deploy_result: DeployWorkflowOutput = await workflow.execute_child_workflow(
+            "DeployWorkflow",
+            DeployWorkflowInput(
+                org_id=params.org_id,
+                slug=params.slug,
+                manifest=clone_result.manifest,
+                source_path=clone_result.source_path,
+            ),
+            id=f"deploy-proj-{params.slug}-{workflow.info().workflow_id}",
+            result_type=DeployWorkflowOutput,
+        )
+
+        # 3. Cleanup cloned source
+        await workflow.execute_activity(
+            cleanup_source_activity,
+            CleanupSourceInput(source_path=clone_result.source_path),
+            start_to_close_timeout=timedelta(minutes=1),
+            retry_policy=retry,
+        )
+
+        return deploy_result

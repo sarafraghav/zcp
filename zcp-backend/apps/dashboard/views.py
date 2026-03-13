@@ -14,7 +14,7 @@ from django_htmx.http import HttpResponseClientRedirect
 from apps.accounts.models import User
 from apps.accounts.forms import SignupForm
 from apps.dashboard.forms import CreateOrgForm
-from apps.workflows.services import start_signup_workflow, get_workflow_status
+from apps.workflows.services import start_signup_workflow, start_project_deploy_workflow, get_workflow_status
 from apps.dashboard.services import get_dashboard
 
 
@@ -258,6 +258,46 @@ class CreateOrgView(LoginRequiredMixin, View):
         ))
         return render(request, "dashboard/create_org_status.html", {
             "workflow_id": result.workflow_id,
+        })
+
+
+class CreateProjectView(LoginRequiredMixin, View):
+    def post(self, request):
+        from apps.accounts.models import ResourceAccessMapping
+        from apps.organizations.models import Organization
+
+        active_org_id = request.session.get("active_org_id")
+        if not active_org_id:
+            return HttpResponseBadRequest("No active org.")
+
+        if not ResourceAccessMapping.objects.filter(
+            user=request.user, organization_id=active_org_id
+        ).exists():
+            return HttpResponseBadRequest("Access denied.")
+
+        org = get_object_or_404(Organization, id=active_org_id)
+
+        # Generate a unique slug: org_slug-pN where N is the next project number
+        project_count = org.projects.count()
+        project_slug = f"{org.slug}-p{project_count + 1}"
+
+        result = asyncio.run(start_project_deploy_workflow(
+            org_id=str(org.id),
+            slug=project_slug,
+        ))
+        return render(request, "dashboard/create_project_status.html", {
+            "workflow_id": result.workflow_id,
+        })
+
+
+class ProjectDeployStatusView(LoginRequiredMixin, View):
+    def get(self, request, workflow_id):
+        status_response = asyncio.run(get_workflow_status(workflow_id))
+        if status_response.status == "completed":
+            return HttpResponseClientRedirect("/dashboard/")
+        return render(request, "dashboard/_project_status_partial.html", {
+            "workflow_id": status_response.workflow_id,
+            "status": status_response.status,
         })
 
 
