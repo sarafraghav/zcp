@@ -6,6 +6,14 @@ urlpatterns = [
     path("status/<str:workflow_id>/", views.WorkflowStatusView.as_view(), name="signup-status"),
 ]
 
+onboarding_urlpatterns = [
+    path("", views.OnboardingWelcomeView.as_view(), name="welcome"),
+    path("schema/", views.OnboardingSchemaView.as_view(), name="schema"),
+    path("apikey/", views.OnboardingApiKeyView.as_view(), name="apikey"),
+    path("deploy/", views.OnboardingDeployView.as_view(), name="deploy"),
+    path("deploy/status/<str:workflow_id>/", views.OnboardingDeployStatusView.as_view(), name="deploy-status"),
+]
+
 dashboard_urlpatterns = [
     path("", views.DashboardView.as_view(), name="dashboard"),
     path("databases/", views.DatabaseListView.as_view(), name="database-list"),

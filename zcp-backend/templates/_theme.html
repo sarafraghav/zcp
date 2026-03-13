@@ -11,6 +11,7 @@
     --bg:        #030712;
     --surface:   #0f172a;
     --surface-2: #1e293b;
+    --surface-3: #283548;
     --border:    #334155;
     --text:      #e2e8f0;
     --muted:     #64748b;
@@ -24,6 +25,7 @@
     --code-bg:   #020617;
     --code-tx:   #34d399;
     --shadow:    none;
+    --glow:      0 0 80px rgba(16,185,129,.06);
   }
 
   /* --- light-clean --- */
@@ -31,6 +33,7 @@
     --bg:        #f8fafc;
     --surface:   #ffffff;
     --surface-2: #f1f5f9;
+    --surface-3: #e8edf3;
     --border:    #e2e8f0;
     --text:      #0f172a;
     --muted:     #64748b;
@@ -44,6 +47,7 @@
     --code-bg:   #1e293b;
     --code-tx:   #a5f3fc;
     --shadow:    0 1px 3px rgba(0,0,0,.08), 0 1px 2px rgba(0,0,0,.05);
+    --glow:      0 0 80px rgba(79,70,229,.06);
   }
 
   /* --- midnight --- */
@@ -51,6 +55,7 @@
     --bg:        #08081e;
     --surface:   #0e0e2a;
     --surface-2: #1a1a3a;
+    --surface-3: #252550;
     --border:    #2a2a5a;
     --text:      #e2e0ff;
     --muted:     #7070aa;
@@ -64,6 +69,7 @@
     --code-bg:   #05051a;
     --code-tx:   #c4b5fd;
     --shadow:    none;
+    --glow:      0 0 80px rgba(167,139,250,.06);
   }
 
   /* --- carbon --- */
@@ -71,6 +77,7 @@
     --bg:        #0a0a0a;
     --surface:   #141414;
     --surface-2: #1f1f1f;
+    --surface-3: #2a2a2a;
     --border:    #2e2e2e;
     --text:      #e5e5e5;
     --muted:     #666666;
@@ -84,6 +91,7 @@
     --code-bg:   #050505;
     --code-tx:   #fb923c;
     --shadow:    none;
+    --glow:      0 0 80px rgba(249,115,22,.06);
   }
 
   /* ============================================================
@@ -110,6 +118,27 @@
     border-radius: 0.75rem;
     overflow: hidden;
     box-shadow: var(--shadow, none);
+  }
+  .card-interactive {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 0.75rem;
+    padding: 1.5rem;
+    box-shadow: var(--shadow, none);
+    cursor: pointer;
+    transition: border-color 0.2s, background 0.2s, transform 0.15s;
+  }
+  .card-interactive:hover {
+    border-color: var(--accent-25);
+    background: var(--accent-10);
+    transform: translateY(-1px);
+  }
+  .card-glow {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 0.75rem;
+    padding: 1.5rem;
+    box-shadow: var(--glow);
   }
 
   /* ============================================================
@@ -160,7 +189,41 @@
     line-height: 1.25;
   }
   .btn-primary:hover { background: var(--accent-25); border-color: var(--accent); }
+  .btn-solid {
+    background: var(--accent);
+    border: 1px solid var(--accent);
+    color: var(--bg);
+    border-radius: 0.5rem;
+    padding: 0.75rem 1.5rem;
+    font-size: 0.875rem;
+    font-weight: 600;
+    cursor: pointer;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 0.5rem;
+    transition: background 0.15s, transform 0.1s;
+    line-height: 1.25;
+  }
+  .btn-solid:hover { background: var(--accent-h); transform: translateY(-1px); }
+  .btn-ghost {
+    background: transparent;
+    border: 1px solid var(--border);
+    color: var(--muted);
+    border-radius: 0.5rem;
+    padding: 0.625rem 1rem;
+    font-size: 0.875rem;
+    font-weight: 500;
+    cursor: pointer;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    transition: color 0.15s, border-color 0.15s;
+    line-height: 1.25;
+  }
+  .btn-ghost:hover { color: var(--text); border-color: var(--text); }
   .btn-sm { font-size: 0.7rem; padding: 0.3rem 0.75rem; }
+  .btn-lg { font-size: 1rem; padding: 0.875rem 2rem; }
 
   /* ============================================================
      FORM FIELDS
@@ -311,6 +374,107 @@
   }
   .theme-dot:hover { transform: scale(1.2); }
   .theme-dot.active { border-color: var(--text); transform: scale(1.15); }
+
+  /* ============================================================
+     ONBOARDING STEPPER
+     ============================================================ */
+  .step-indicator {
+    display: flex;
+    align-items: center;
+    gap: 0;
+  }
+  .step-dot {
+    width: 8px;
+    height: 8px;
+    border-radius: 9999px;
+    background: var(--border);
+    transition: background 0.3s, transform 0.3s;
+  }
+  .step-dot.active {
+    background: var(--accent);
+    transform: scale(1.4);
+  }
+  .step-dot.completed {
+    background: var(--accent);
+    opacity: 0.5;
+  }
+  .step-line {
+    width: 32px;
+    height: 2px;
+    background: var(--border);
+    transition: background 0.3s;
+  }
+  .step-line.completed {
+    background: var(--accent);
+    opacity: 0.5;
+  }
+
+  /* ============================================================
+     RESOURCE CARDS (Dashboard)
+     ============================================================ */
+  .resource-card {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 0.75rem;
+    padding: 1.25rem;
+    cursor: pointer;
+    transition: border-color 0.2s, background 0.2s, box-shadow 0.2s;
+    position: relative;
+    overflow: hidden;
+  }
+  .resource-card:hover {
+    border-color: var(--accent-25);
+    box-shadow: var(--glow);
+  }
+  .resource-card.expanded {
+    border-color: var(--accent);
+    box-shadow: var(--glow);
+  }
+  .resource-icon {
+    width: 36px;
+    height: 36px;
+    border-radius: 0.5rem;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+    font-size: 1rem;
+  }
+
+  /* ============================================================
+     ANIMATIONS
+     ============================================================ */
+  @keyframes fadeInUp {
+    from { opacity: 0; transform: translateY(12px); }
+    to   { opacity: 1; transform: translateY(0); }
+  }
+  @keyframes pulse-glow {
+    0%, 100% { box-shadow: 0 0 0 0 var(--accent-10); }
+    50%      { box-shadow: 0 0 0 8px transparent; }
+  }
+  @keyframes slideIn {
+    from { opacity: 0; transform: translateX(-8px); }
+    to   { opacity: 1; transform: translateX(0); }
+  }
+  .animate-in {
+    animation: fadeInUp 0.4s ease-out both;
+  }
+  .animate-in-delayed {
+    animation: fadeInUp 0.4s ease-out 0.1s both;
+  }
+  .animate-in-delayed-2 {
+    animation: fadeInUp 0.4s ease-out 0.2s both;
+  }
+  .animate-in-delayed-3 {
+    animation: fadeInUp 0.4s ease-out 0.3s both;
+  }
+
+  /* ============================================================
+     JSON SYNTAX HIGHLIGHTING (inline)
+     ============================================================ */
+  .json-key { color: var(--accent); }
+  .json-string { color: var(--s-tx); }
+  .json-number { color: var(--w-tx); }
 
   /* ============================================================
      UTILITY ALIASES

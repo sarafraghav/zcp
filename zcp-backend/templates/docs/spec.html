@@ -94,12 +94,12 @@
     <button class="card text-left px-4 py-3 svc-tab active" data-target="svc-postgres"
             onclick="showSection(this, 'svc-postgres')">
       <div class="text-sm font-semibold text-main">postgres</div>
-      <div class="text-xs text-muted mt-0.5">Neon serverless database</div>
+      <div class="text-xs text-muted mt-0.5">Serverless database</div>
     </button>
     <button class="card text-left px-4 py-3 svc-tab" data-target="svc-redis"
             onclick="showSection(this, 'svc-redis')">
       <div class="text-sm font-semibold text-main">redis</div>
-      <div class="text-xs text-muted mt-0.5">Upstash cache</div>
+      <div class="text-xs text-muted mt-0.5">In-memory cache</div>
     </button>
     <button class="card text-left px-4 py-3 svc-tab" data-target="svc-web"
             onclick="showSection(this, 'svc-web')">
@@ -121,7 +121,7 @@
           <h3 class="text-sm font-semibold text-main">postgres</h3>
           <span class="badge badge-neutral">Infrastructure</span>
         </div>
-        <p class="text-xs text-muted mt-1">Provisions a serverless Postgres database via Neon. Outputs are available to compute services via <code class="code-chip">fromService</code>.</p>
+        <p class="text-xs text-muted mt-1">Provisions a serverless Postgres database. Outputs are available to compute services via <code class="code-chip">fromService</code>.</p>
       </div>
       <div class="p-5">
         <table class="w-full text-sm mb-6">
@@ -167,15 +167,15 @@
           <tbody class="text-main">
             <tr class="border-b divider">
               <td class="py-3 pr-4"><code class="code-chip">connectionString</code></td>
-              <td class="py-3 text-muted">Full Neon connection URI (<code class="code-chip">postgresql://...</code>)</td>
+              <td class="py-3 text-muted">Full Postgres connection URI (<code class="code-chip">postgresql://...</code>)</td>
             </tr>
             <tr class="border-b divider">
               <td class="py-3 pr-4"><code class="code-chip">project_id</code></td>
-              <td class="py-3 text-muted">Neon project ID</td>
+              <td class="py-3 text-muted">Project ID</td>
             </tr>
             <tr>
               <td class="py-3 pr-4"><code class="code-chip">database_name</code></td>
-              <td class="py-3 text-muted">Neon database name</td>
+              <td class="py-3 text-muted">Database name</td>
             </tr>
           </tbody>
         </table>
@@ -196,7 +196,7 @@
           <h3 class="text-sm font-semibold text-main">redis</h3>
           <span class="badge badge-neutral">Infrastructure</span>
         </div>
-        <p class="text-xs text-muted mt-1">Provisions a Redis cache via Upstash.</p>
+        <p class="text-xs text-muted mt-1">Provisions an in-memory Redis cache.</p>
       </div>
       <div class="p-5">
         <table class="w-full text-sm mb-6">
@@ -239,7 +239,7 @@
             </tr>
             <tr class="border-b divider">
               <td class="py-3 pr-4"><code class="code-chip">host</code></td>
-              <td class="py-3 text-muted">Upstash endpoint hostname</td>
+              <td class="py-3 text-muted">Redis endpoint hostname</td>
             </tr>
             <tr class="border-b divider">
               <td class="py-3 pr-4"><code class="code-chip">port</code></td>
@@ -247,11 +247,11 @@
             </tr>
             <tr class="border-b divider">
               <td class="py-3 pr-4"><code class="code-chip">authToken</code></td>
-              <td class="py-3 text-muted">Upstash password</td>
+              <td class="py-3 text-muted">Redis password</td>
             </tr>
             <tr>
               <td class="py-3 pr-4"><code class="code-chip">restToken</code></td>
-              <td class="py-3 text-muted">Upstash REST API token</td>
+              <td class="py-3 text-muted">REST API token</td>
             </tr>
           </tbody>
         </table>

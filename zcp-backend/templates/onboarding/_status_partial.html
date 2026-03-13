@@ -1,5 +1,5 @@
 {% if status == "failed" or status == "terminated" or status == "timed_out" %}
-  <div class="card">
+  <div class="card animate-in">
     <div class="flex items-start gap-4">
       <div class="w-8 h-8 rounded-full flex items-center justify-center flex-shrink-0 mt-0.5"
            style="background:var(--e-bg);border:1px solid var(--e-bd)">
@@ -8,17 +8,18 @@
         </svg>
       </div>
       <div>
-        <p class="text-sm font-semibold text-main">Provisioning failed</p>
-        <p class="text-sm text-muted mt-0.5">Please try again or contact support.</p>
+        <p class="text-sm font-semibold text-main">Deployment failed</p>
+        <p class="text-sm text-muted mt-0.5">Something went wrong. Please try again or contact support.</p>
+        <a href="{% url 'onboarding:deploy' %}" class="btn-primary btn-sm mt-3 inline-flex">Try again</a>
       </div>
     </div>
   </div>
 {% else %}
   <div
-    hx-get="{% url 'signup-status' workflow_id %}"
+    hx-get="{% url 'onboarding:deploy-status' workflow_id %}"
     hx-trigger="every 2s"
     hx-swap="outerHTML"
-    class="card"
+    class="card animate-in"
   >
     <!-- Status header -->
     <div class="flex items-center justify-between mb-6">
@@ -27,7 +28,7 @@
           <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
           <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8z"></path>
         </svg>
-        <span class="text-sm font-medium text-main">Provisioning…</span>
+        <span class="text-sm font-medium text-main">Provisioning resources…</span>
       </div>
       <span class="font-mono text-xs text-muted">{{ status }}</span>
     </div>

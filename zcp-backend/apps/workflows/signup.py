@@ -184,6 +184,7 @@ class SignupWorkflow:
                 source_path=clone_result.source_path,
             ),
             id=f"deploy-{params.slug}-{workflow.info().workflow_id}",
+            result_type=DeployWorkflowOutput,
         )
 
         # 5. Cleanup cloned source

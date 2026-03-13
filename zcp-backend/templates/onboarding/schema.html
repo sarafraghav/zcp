@@ -1,0 +1,150 @@
+{% extends "base.html" %}
+{% block title %}The Manifest — ZCP{% endblock %}
+{% block content %}
+<div class="max-w-3xl mx-auto mt-6">
+
+  <!-- Stepper -->
+  <div class="flex justify-center mb-12 animate-in">
+    <div class="step-indicator">
+      <div class="step-dot completed"></div>
+      <div class="step-line completed"></div>
+      <div class="step-dot active"></div>
+      <div class="step-line"></div>
+      <div class="step-dot"></div>
+      <div class="step-line"></div>
+      <div class="step-dot"></div>
+    </div>
+  </div>
+
+  <!-- Header -->
+  <div class="text-center mb-10 animate-in">
+    <h1 class="text-3xl font-bold text-main tracking-tight">
+      The <code class="font-mono text-accent">zcp.json</code> manifest
+    </h1>
+    <p class="text-sm text-muted mt-3 max-w-lg mx-auto">
+      Everything your app needs lives in one file. Databases, caches, and compute services
+      — each is an entry in the <code class="code-chip">services</code> array.
+    </p>
+  </div>
+
+  <!-- Full example -->
+  <div class="card-glow mb-8 animate-in-delayed">
+    <div class="flex items-center justify-between mb-4">
+      <span class="text-xs font-semibold text-muted uppercase tracking-widest">zcp.json</span>
+      <button class="btn-sm"
+              style="background:var(--surface-2);border:1px solid var(--border);color:var(--text);border-radius:0.375rem;padding:0.2rem 0.625rem;font-size:0.7rem;cursor:pointer"
+              onclick="navigator.clipboard.writeText(document.getElementById('schema-example').textContent);this.textContent='Copied!';setTimeout(()=>this.textContent='Copy',1500)">
+        Copy
+      </button>
+    </div>
+    <pre class="code-block text-sm leading-relaxed" id="schema-example">{
+  <span class="json-key">"name"</span>: <span class="json-string">"myapp"</span>,
+  <span class="json-key">"services"</span>: [
+    { <span class="json-key">"id"</span>: <span class="json-string">"maindb"</span>, <span class="json-key">"type"</span>: <span class="json-string">"postgres"</span> },
+    { <span class="json-key">"id"</span>: <span class="json-string">"cache"</span>,  <span class="json-key">"type"</span>: <span class="json-string">"redis"</span> },
+    {
+      <span class="json-key">"id"</span>: <span class="json-string">"api"</span>,
+      <span class="json-key">"type"</span>: <span class="json-string">"web"</span>,
+      <span class="json-key">"runtime"</span>: <span class="json-string">"python"</span>,
+      <span class="json-key">"start"</span>: <span class="json-string">"gunicorn app:app --bind 0.0.0.0:5001"</span>,
+      <span class="json-key">"port"</span>: <span class="json-number">5001</span>,
+      <span class="json-key">"env"</span>: [
+        { <span class="json-key">"name"</span>: <span class="json-string">"DATABASE_URL"</span>, <span class="json-key">"fromService"</span>: { <span class="json-key">"id"</span>: <span class="json-string">"maindb"</span>, <span class="json-key">"value"</span>: <span class="json-string">"connectionString"</span> } },
+        { <span class="json-key">"name"</span>: <span class="json-string">"REDIS_URL"</span>,    <span class="json-key">"fromService"</span>: { <span class="json-key">"id"</span>: <span class="json-string">"cache"</span>,  <span class="json-key">"value"</span>: <span class="json-string">"connectionString"</span> } }
+      ]
+    }
+  ]
+}</pre>
+  </div>
+
+  <!-- Service types grid -->
+  <div class="grid grid-cols-2 gap-4 mb-8 animate-in-delayed">
+    <div class="card">
+      <div class="flex items-center gap-2.5 mb-3">
+        <div class="w-8 h-8 rounded-lg flex items-center justify-center" style="background:var(--accent-10)">
+          <svg class="w-4 h-4 text-accent" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.5">
+            <path stroke-linecap="round" stroke-linejoin="round" d="M20.25 6.375c0 2.278-3.694 4.125-8.25 4.125S3.75 8.653 3.75 6.375m16.5 0c0-2.278-3.694-4.125-8.25-4.125S3.75 4.097 3.75 6.375m16.5 0v11.25c0 2.278-3.694 4.125-8.25 4.125s-8.25-1.847-8.25-4.125V6.375" />
+          </svg>
+        </div>
+        <div>
+          <p class="text-sm font-semibold text-main">postgres</p>
+          <span class="badge badge-neutral" style="font-size:0.6rem">infra</span>
+        </div>
+      </div>
+      <p class="text-xs text-muted leading-relaxed">Serverless Postgres database. Reference its <code class="code-chip">connectionString</code> in compute services via <code class="code-chip">fromService</code>.</p>
+    </div>
+
+    <div class="card">
+      <div class="flex items-center gap-2.5 mb-3">
+        <div class="w-8 h-8 rounded-lg flex items-center justify-center" style="background:var(--accent-10)">
+          <svg class="w-4 h-4 text-accent" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.5">
+            <path stroke-linecap="round" stroke-linejoin="round" d="M3.75 13.5l10.5-11.25L12 10.5h8.25L9.75 21.75 12 13.5H3.75z" />
+          </svg>
+        </div>
+        <div>
+          <p class="text-sm font-semibold text-main">redis</p>
+          <span class="badge badge-neutral" style="font-size:0.6rem">infra</span>
+        </div>
+      </div>
+      <p class="text-xs text-muted leading-relaxed">In-memory cache. Access via <code class="code-chip">connectionString</code>, <code class="code-chip">host</code>, <code class="code-chip">authToken</code>.</p>
+    </div>
+
+    <div class="card">
+      <div class="flex items-center gap-2.5 mb-3">
+        <div class="w-8 h-8 rounded-lg flex items-center justify-center" style="background:var(--accent-10)">
+          <svg class="w-4 h-4 text-accent" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.5">
+            <path stroke-linecap="round" stroke-linejoin="round" d="M12 21a9.004 9.004 0 008.716-6.747M12 21a9.004 9.004 0 01-8.716-6.747M12 21c2.485 0 4.5-4.03 4.5-9S14.485 3 12 3m0 18c-2.485 0-4.5-4.03-4.5-9S9.515 3 12 3" />
+          </svg>
+        </div>
+        <div>
+          <p class="text-sm font-semibold text-main">web</p>
+          <span class="badge badge-neutral" style="font-size:0.6rem">compute</span>
+        </div>
+      </div>
+      <p class="text-xs text-muted leading-relaxed">Public HTTP service. Specify <code class="code-chip">start</code>, <code class="code-chip">port</code>, <code class="code-chip">scaling</code>, and <code class="code-chip">env</code>.</p>
+    </div>
+
+    <div class="card">
+      <div class="flex items-center gap-2.5 mb-3">
+        <div class="w-8 h-8 rounded-lg flex items-center justify-center" style="background:var(--accent-10)">
+          <svg class="w-4 h-4 text-accent" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.5">
+            <path stroke-linecap="round" stroke-linejoin="round" d="M8.25 3v1.5M4.5 8.25H3m18 0h-1.5M4.5 12H3m18 0h-1.5m-15 3.75H3m18 0h-1.5M8.25 19.5V21M12 3v1.5m0 15V21m3.75-18v1.5m0 15V21m-9-1.5h10.5a2.25 2.25 0 002.25-2.25V6.75a2.25 2.25 0 00-2.25-2.25H6.75A2.25 2.25 0 004.5 6.75v10.5a2.25 2.25 0 002.25 2.25z" />
+          </svg>
+        </div>
+        <div>
+          <p class="text-sm font-semibold text-main">worker</p>
+          <span class="badge badge-neutral" style="font-size:0.6rem">compute</span>
+        </div>
+      </div>
+      <p class="text-xs text-muted leading-relaxed">Background process with no HTTP endpoint. Same config as <code class="code-chip">web</code> minus <code class="code-chip">port</code>.</p>
+    </div>
+  </div>
+
+  <!-- Linking callout -->
+  <div class="card mb-10 animate-in-delayed-2" style="border-left:3px solid var(--accent)">
+    <p class="text-xs font-semibold text-accent uppercase tracking-widest mb-2">Key concept: fromService</p>
+    <p class="text-sm text-muted leading-relaxed">
+      Compute services reference infra outputs using <code class="code-chip">fromService</code>.
+      For example, <code class="code-chip">{ "fromService": { "id": "maindb", "value": "connectionString" } }</code>
+      injects the Postgres connection URI as an env var at deploy time.
+    </p>
+  </div>
+
+  <!-- Navigation -->
+  <div class="flex items-center justify-between animate-in-delayed-3">
+    <a href="{% url 'onboarding:welcome' %}" class="btn-ghost">
+      <svg class="w-4 h-4 mr-1" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+        <path stroke-linecap="round" stroke-linejoin="round" d="M10.5 19.5L3 12m0 0l7.5-7.5M3 12h18" />
+      </svg>
+      Back
+    </a>
+    <a href="{% url 'onboarding:apikey' %}" class="btn-solid btn-lg">
+      Next: Your API key
+      <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+        <path stroke-linecap="round" stroke-linejoin="round" d="M13.5 4.5L21 12m0 0l-7.5 7.5M21 12H3" />
+      </svg>
+    </a>
+  </div>
+
+</div>
+{% endblock %}

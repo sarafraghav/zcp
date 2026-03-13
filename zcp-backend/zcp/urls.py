@@ -1,7 +1,7 @@
 from django.contrib import admin
 from django.urls import include, path
 from django.views.generic import RedirectView
-from apps.dashboard.urls import dashboard_urlpatterns
+from apps.dashboard.urls import dashboard_urlpatterns, onboarding_urlpatterns
 
 admin.site.site_header = "Zamp Control Plane"
 admin.site.site_title = "ZCP Admin"
@@ -11,6 +11,7 @@ urlpatterns = [
     path("", RedirectView.as_view(url="/dashboard/", permanent=False)),
     path("admin/", admin.site.urls),
     path("signup/", include("apps.dashboard.urls")),
+    path("onboarding/", include((onboarding_urlpatterns, "onboarding"))),
     path("dashboard/", include((dashboard_urlpatterns, "dashboard"))),
     path("accounts/", include("django.contrib.auth.urls")),
     path("api/", include("apps.api.urls")),

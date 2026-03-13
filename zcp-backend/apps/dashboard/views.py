@@ -31,6 +31,8 @@ def _active_org_id(request, dashboard):
     return first_id
 
 
+# ─── Signup ──────────────────────────────────────────────────────────────
+
 class SignupView(View):
     def get(self, request):
         return render(request, "signup/form.html", {"form": SignupForm()})
@@ -42,20 +44,19 @@ class SignupView(View):
 
         # User created in Django — password never passes through Temporal
         user = form.save()
-        request.session["pending_signup_user_id"] = str(user.id)
 
-        result = asyncio.run(start_signup_workflow(
-            user_id=str(user.id),
-            org_name=form.cleaned_data["org_name"],
-            slug=form.cleaned_data["slug"],
-        ))
-        return render(request, "signup/status.html", {
-            "workflow_id": result.workflow_id,
-            "status": result.status,
-        })
+        # Store org info in session for the onboarding deploy step
+        request.session["pending_org_name"] = form.cleaned_data["org_name"]
+        request.session["pending_slug"] = form.cleaned_data["slug"]
+
+        # Auto-login immediately
+        login(request, user, backend="django.contrib.auth.backends.ModelBackend")
+
+        return redirect("onboarding:welcome")
 
 
 class WorkflowStatusView(View):
+    """Legacy status endpoint — still used for direct signup flows."""
     def get(self, request, workflow_id):
         status_response = asyncio.run(get_workflow_status(workflow_id))
 
@@ -71,6 +72,63 @@ class WorkflowStatusView(View):
             "status": status_response.status,
         })
 
+
+# ─── Onboarding ─────────────────────────────────────────────────────────
+
+class OnboardingWelcomeView(LoginRequiredMixin, View):
+    def get(self, request):
+        return render(request, "onboarding/welcome.html")
+
+
+class OnboardingSchemaView(LoginRequiredMixin, View):
+    def get(self, request):
+        return render(request, "onboarding/schema.html")
+
+
+class OnboardingApiKeyView(LoginRequiredMixin, View):
+    def get(self, request):
+        from apps.apikeys.models import APIKey
+        if not APIKey.objects.filter(user=request.user).exists():
+            APIKey.objects.create(user=request.user, name="Default")
+        api_key = APIKey.objects.filter(user=request.user).first()
+        return render(request, "onboarding/apikey.html", {"api_key": api_key})
+
+
+class OnboardingDeployView(LoginRequiredMixin, View):
+    def get(self, request):
+        return render(request, "onboarding/deploy.html")
+
+    def post(self, request):
+        org_name = request.session.get("pending_org_name")
+        slug = request.session.get("pending_slug")
+        if not org_name or not slug:
+            return redirect("onboarding:welcome")
+
+        result = asyncio.run(start_signup_workflow(
+            user_id=str(request.user.id),
+            org_name=org_name,
+            slug=slug,
+        ))
+        return render(request, "onboarding/status.html", {
+            "workflow_id": result.workflow_id,
+        })
+
+
+class OnboardingDeployStatusView(LoginRequiredMixin, View):
+    def get(self, request, workflow_id):
+        status_response = asyncio.run(get_workflow_status(workflow_id))
+        if status_response.status == "completed":
+            # Clean up session
+            request.session.pop("pending_org_name", None)
+            request.session.pop("pending_slug", None)
+            return HttpResponseClientRedirect("/dashboard/")
+        return render(request, "onboarding/_status_partial.html", {
+            "workflow_id": status_response.workflow_id,
+            "status": status_response.status,
+        })
+
+
+# ─── Dashboard ───────────────────────────────────────────────────────────
 
 class DashboardView(LoginRequiredMixin, View):
     def get(self, request):
@@ -228,10 +286,10 @@ class SwitchOrgView(LoginRequiredMixin, View):
 # In-memory deletion state: org_id (str) -> {"step": int, "status": "deleting|done|error", "error": str}
 _DELETION_STEPS = [
     "Starting",
-    "Stopping Modal app",
-    "Deleting Neon database",
-    "Deleting Redis",
-    "Removing org records",
+    "Stopping deployed services",
+    "Deleting database",
+    "Deleting cache",
+    "Removing project records",
 ]
 _deletion_state: dict = {}
 

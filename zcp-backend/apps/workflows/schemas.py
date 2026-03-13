@@ -72,10 +72,6 @@ class CloneRepoOutput(BaseModel):
     source_path: str
 
 
-class InitDatabaseSchemaInput(BaseModel):
-    connection_string: str
-    sql: str
-
 
 class ModalDeployInput(BaseModel):
     org_id: str

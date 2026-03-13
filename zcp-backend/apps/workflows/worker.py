@@ -23,7 +23,6 @@ from apps.workflows.deploy import (
     DeployWorkflow,
     create_project_activity,
     clone_repo_activity,
-    init_database_schema_activity,
     modal_deploy_activity,
     cleanup_source_activity,
 )
@@ -44,7 +43,6 @@ async def main():
             provision_upstash_redis_activity,
             create_project_activity,
             clone_repo_activity,
-            init_database_schema_activity,
             modal_deploy_activity,
             cleanup_source_activity,
         ],

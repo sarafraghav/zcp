@@ -1,0 +1,110 @@
+{% extends "base.html" %}
+{% block title %}Deploy Pace — ZCP{% endblock %}
+{% block content %}
+<div class="max-w-2xl mx-auto mt-6">
+
+  <!-- Stepper -->
+  <div class="flex justify-center mb-12 animate-in">
+    <div class="step-indicator">
+      <div class="step-dot completed"></div>
+      <div class="step-line completed"></div>
+      <div class="step-dot completed"></div>
+      <div class="step-line completed"></div>
+      <div class="step-dot completed"></div>
+      <div class="step-line completed"></div>
+      <div class="step-dot active"></div>
+    </div>
+  </div>
+
+  <!-- Header -->
+  <div class="text-center mb-10 animate-in">
+    <h1 class="text-3xl font-bold text-main tracking-tight">Deploy your first app</h1>
+    <p class="text-sm text-muted mt-3 max-w-md mx-auto">
+      We've prepared <strong class="text-main">Pace</strong> — a sample project that deploys
+      a web app with a Postgres database and Redis cache, so you can see ZCP in action.
+    </p>
+  </div>
+
+  <!-- Pace preset card -->
+  <div class="card-glow mb-8 animate-in-delayed">
+    <div class="flex items-start gap-5">
+      <!-- App icon -->
+      <div class="w-14 h-14 rounded-xl flex items-center justify-center flex-shrink-0"
+           style="background:var(--accent-10);border:1px solid var(--accent-25);box-shadow:var(--glow)">
+        <span class="text-accent font-bold text-xl tracking-tight">P</span>
+      </div>
+      <div class="flex-1">
+        <div class="flex items-center gap-3 mb-1">
+          <h2 class="text-lg font-bold text-main">Pace</h2>
+          <span class="badge badge-neutral">preset</span>
+        </div>
+        <p class="text-sm text-muted mb-4">A full-stack sample app with API backend, database, and cache — deployed in ~30 seconds.</p>
+
+        <!-- What it provisions -->
+        <div class="grid grid-cols-3 gap-3 mb-5">
+          <div class="rounded-lg p-3 text-center" style="background:var(--surface-2);border:1px solid var(--border)">
+            <svg class="w-5 h-5 text-accent mx-auto mb-1.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.5">
+              <path stroke-linecap="round" stroke-linejoin="round" d="M20.25 6.375c0 2.278-3.694 4.125-8.25 4.125S3.75 8.653 3.75 6.375m16.5 0c0-2.278-3.694-4.125-8.25-4.125S3.75 4.097 3.75 6.375m16.5 0v11.25c0 2.278-3.694 4.125-8.25 4.125s-8.25-1.847-8.25-4.125V6.375" />
+            </svg>
+            <p class="text-xs font-medium text-main">Postgres</p>
+          </div>
+          <div class="rounded-lg p-3 text-center" style="background:var(--surface-2);border:1px solid var(--border)">
+            <svg class="w-5 h-5 text-accent mx-auto mb-1.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.5">
+              <path stroke-linecap="round" stroke-linejoin="round" d="M3.75 13.5l10.5-11.25L12 10.5h8.25L9.75 21.75 12 13.5H3.75z" />
+            </svg>
+            <p class="text-xs font-medium text-main">Redis</p>
+          </div>
+          <div class="rounded-lg p-3 text-center" style="background:var(--surface-2);border:1px solid var(--border)">
+            <svg class="w-5 h-5 text-accent mx-auto mb-1.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.5">
+              <path stroke-linecap="round" stroke-linejoin="round" d="M12 21a9.004 9.004 0 008.716-6.747M12 21a9.004 9.004 0 01-8.716-6.747M12 21c2.485 0 4.5-4.03 4.5-9S14.485 3 12 3" />
+            </svg>
+            <p class="text-xs font-medium text-main">Web App</p>
+          </div>
+        </div>
+
+        <!-- Deploy manifest preview -->
+        <details class="mb-5">
+          <summary>View manifest</summary>
+          <pre class="code-block text-xs mt-2 leading-relaxed">{
+  <span class="json-key">"name"</span>: <span class="json-string">"pace"</span>,
+  <span class="json-key">"services"</span>: [
+    { <span class="json-key">"id"</span>: <span class="json-string">"db"</span>,    <span class="json-key">"type"</span>: <span class="json-string">"postgres"</span> },
+    { <span class="json-key">"id"</span>: <span class="json-string">"cache"</span>, <span class="json-key">"type"</span>: <span class="json-string">"redis"</span> },
+    {
+      <span class="json-key">"id"</span>: <span class="json-string">"api"</span>,
+      <span class="json-key">"type"</span>: <span class="json-string">"web"</span>,
+      <span class="json-key">"runtime"</span>: <span class="json-string">"python"</span>,
+      <span class="json-key">"start"</span>: <span class="json-string">"python -m http.server 5001"</span>,
+      <span class="json-key">"port"</span>: <span class="json-number">5001</span>,
+      <span class="json-key">"env"</span>: [
+        { <span class="json-key">"name"</span>: <span class="json-string">"DATABASE_URL"</span>, <span class="json-key">"fromService"</span>: { <span class="json-key">"id"</span>: <span class="json-string">"db"</span>, <span class="json-key">"value"</span>: <span class="json-string">"connectionString"</span> } },
+        { <span class="json-key">"name"</span>: <span class="json-string">"REDIS_URL"</span>, <span class="json-key">"fromService"</span>: { <span class="json-key">"id"</span>: <span class="json-string">"cache"</span>, <span class="json-key">"value"</span>: <span class="json-string">"connectionString"</span> } }
+      ]
+    }
+  ]
+}</pre>
+        </details>
+
+        <!-- Deploy button -->
+        <form method="post">
+          {% csrf_token %}
+          <button type="submit" class="btn-solid btn-lg w-full">
+            <svg class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+              <path stroke-linecap="round" stroke-linejoin="round" d="M15.59 14.37a6 6 0 01-5.84 7.38v-4.8m5.84-2.58a14.98 14.98 0 006.16-12.12A14.98 14.98 0 009.631 8.41m5.96 5.96a14.926 14.926 0 01-5.841 2.58m-.119-8.54a6 6 0 00-7.381 5.84h4.8m2.581-5.84a14.927 14.927 0 00-2.58 5.84m2.699 2.7c-.103.021-.207.041-.311.06a15.09 15.09 0 01-2.448-2.448 14.9 14.9 0 01.06-.312m-2.24 2.39a4.493 4.493 0 00-1.757 4.306 4.493 4.493 0 004.306-1.758M16.5 9a1.5 1.5 0 11-3 0 1.5 1.5 0 013 0z" />
+            </svg>
+            Deploy Pace
+          </button>
+        </form>
+      </div>
+    </div>
+  </div>
+
+  <!-- Skip option -->
+  <div class="text-center animate-in-delayed-2">
+    <a href="{% url 'dashboard:dashboard' %}" class="text-xs text-muted hover:text-accent transition-colors">
+      Skip for now — go to dashboard
+    </a>
+  </div>
+
+</div>
+{% endblock %}

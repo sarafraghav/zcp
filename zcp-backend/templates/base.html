@@ -8,14 +8,14 @@
   <script>(function(){var t=localStorage.getItem('zcp-theme');if(t)document.documentElement.setAttribute('data-theme',t);})();</script>
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+  <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
   <script src="https://cdn.tailwindcss.com"></script>
   <script>
     tailwind.config = {
       theme: {
         extend: {
           fontFamily: {
-            sans: ['Inter', 'ui-sans-serif', 'system-ui', 'sans-serif'],
+            sans: ['Space Grotesk', 'ui-sans-serif', 'system-ui', 'sans-serif'],
             mono: ['JetBrains Mono', 'ui-monospace', 'monospace'],
           },
         }
@@ -27,13 +27,13 @@
 </head>
 <body class="min-h-screen font-sans antialiased">
   <nav class="border-b px-6 py-3" style="background:var(--surface);border-color:var(--border)">
-    <div class="max-w-5xl mx-auto flex items-center justify-between">
+    <div class="max-w-6xl mx-auto flex items-center justify-between">
       <a href="/" class="flex items-center gap-2.5 group">
         <div class="w-7 h-7 rounded-md flex items-center justify-center flex-shrink-0"
              style="background:var(--accent-10);border:1px solid var(--accent-25)">
           <span class="text-accent text-xs font-mono font-medium">Z</span>
         </div>
-        <span class="font-semibold text-sm text-main group-hover:text-accent transition-colors">ZCP</span>
+        <span class="font-semibold text-sm text-main group-hover:text-accent transition-colors tracking-tight">ZCP</span>
       </a>
       <div class="flex items-center gap-0.5">
         <a href="{% url 'docs:spec' %}" class="nav-link">Docs</a>
@@ -57,7 +57,7 @@
       </div>
     </div>
   </nav>
-  <main class="max-w-5xl mx-auto px-6 py-10">
+  <main class="max-w-6xl mx-auto px-6 py-10">
     {% block content %}{% endblock %}
   </main>
   <script>

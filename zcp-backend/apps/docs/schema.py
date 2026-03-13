@@ -58,12 +58,6 @@ class PostgresService(BaseModel):
     """Provisions a serverless Postgres database via Neon."""
     id: str = Field(description="Unique identifier used in `fromService` references.")
     type: Literal["postgres"]
-    init_sql: str | None = Field(
-        default=None,
-        alias="schema",
-        description="Optional SQL to run after provisioning (e.g. CREATE TABLE statements).",
-    )
-    model_config = ConfigDict(populate_by_name=True)
 
 
 class RedisService(BaseModel):
@@ -138,8 +132,5 @@ def validate_manifest(raw: dict) -> ZcpManifest:
 
 
 def validate_and_dump(raw: dict) -> dict:
-    """Validate and return a clean dict suitable for downstream processing.
-
-    Uses ``by_alias=True`` so JSON keys match the zcp.json spec (e.g. ``schema`` not ``init_sql``).
-    """
-    return validate_manifest(raw).model_dump(by_alias=True, exclude_none=True)
+    """Validate and return a clean dict suitable for downstream processing."""
+    return validate_manifest(raw).model_dump(exclude_none=True)

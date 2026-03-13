@@ -14,7 +14,6 @@ from temporalio.common import RetryPolicy
 from apps.workflows.schemas import (
     CreateProjectInput, CreateProjectOutput,
     CloneRepoInput, CloneRepoOutput,
-    InitDatabaseSchemaInput,
     ModalDeployInput, ModalDeployOutput,
     CleanupSourceInput,
     DeployWorkflowInput, DeployWorkflowOutput,
@@ -85,18 +84,6 @@ async def clone_repo_activity(params: CloneRepoInput) -> CloneRepoOutput:
 
     return CloneRepoOutput(manifest=manifest, source_path=str(clone_dir))
 
-
-@activity.defn
-async def init_database_schema_activity(params: InitDatabaseSchemaInput) -> None:
-    """Run init SQL against a provisioned database (e.g. CREATE TABLE statements)."""
-    import psycopg2
-    conn = psycopg2.connect(params.connection_string)
-    conn.autocommit = True
-    try:
-        with conn.cursor() as cur:
-            cur.execute(params.sql)
-    finally:
-        conn.close()
 
 
 @activity.defn
@@ -264,20 +251,7 @@ class DeployWorkflow:
                         "restToken": result.rest_token,
                     }
 
-        # 3. Run schema init for postgres services that have a "schema" field
-        for svc in infra_services:
-            if svc["type"] == "postgres" and svc.get("schema") and svc["id"] in provisioned:
-                await workflow.execute_activity(
-                    init_database_schema_activity,
-                    InitDatabaseSchemaInput(
-                        connection_string=provisioned[svc["id"]]["connectionString"],
-                        sql=svc["schema"],
-                    ),
-                    start_to_close_timeout=timedelta(minutes=2),
-                    retry_policy=retry,
-                )
-
-        # 4. Modal deploy
+        # 3. Modal deploy
         deploy_result = await workflow.execute_activity(
             modal_deploy_activity,
             ModalDeployInput(
