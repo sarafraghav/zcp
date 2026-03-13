@@ -54,7 +54,7 @@ services:
   - type: worker
     name: zcp-worker
     runtime: python
-    plan: free
+    plan: starter
     buildCommand: ./render-build.sh
     startCommand: cd zcp-backend && uv run python -m apps.workflows.worker
     envVars:
