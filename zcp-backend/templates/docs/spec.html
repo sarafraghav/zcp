@@ -1,0 +1,631 @@
+{% extends "base.html" %}
+{% block title %}zcp.json Spec — ZCP{% endblock %}
+{% block content %}
+
+<div class="mb-10">
+  <div class="flex items-center gap-3 mb-2">
+    <div class="w-9 h-9 rounded-lg flex items-center justify-center flex-shrink-0"
+         style="background:var(--accent-10);border:1px solid var(--accent-25)">
+      <span class="text-accent text-base font-mono font-semibold">{}</span>
+    </div>
+    <div>
+      <h1 class="text-2xl font-semibold text-main">zcp.json Specification</h1>
+      <p class="text-sm text-muted">Configuration reference for the Zamp Control Plane deployment manifest</p>
+    </div>
+  </div>
+  <div class="flex items-center gap-3 mt-4">
+    <a href="{% url 'docs:schema-json' %}" class="btn-primary btn-sm" target="_blank">Download JSON Schema</a>
+    <span class="text-xs text-muted font-mono">Add <span class="code-chip">"$schema"</span> to your zcp.json for editor autocomplete</span>
+  </div>
+</div>
+
+<!-- Quick start -->
+<section class="card-flush mb-6">
+  <div class="px-5 py-4 border-b divider" style="background:var(--surface-2)">
+    <h2 class="text-sm font-semibold text-main">Quick Start</h2>
+  </div>
+  <div class="p-5">
+    <pre class="code-block text-sm leading-relaxed overflow-x-auto">{
+  "name": "myapp",
+  "services": [
+    { "id": "maindb", "type": "postgres" },
+    { "id": "cache",  "type": "redis" },
+    {
+      "id": "api",
+      "type": "web",
+      "runtime": "python",
+      "basePath": "backend",
+      "start": "gunicorn app:app --bind 0.0.0.0:5001 --workers 2",
+      "port": 5001,
+      "scaling": { "min": 1, "max": 3 },
+      "env": [
+        { "name": "DATABASE_URL", "fromService": { "id": "maindb", "value": "connectionString" } },
+        { "name": "REDIS_URL",    "fromService": { "id": "cache",  "value": "connectionString" } },
+        { "name": "FLASK_ENV",    "value": "production" }
+      ]
+    }
+  ]
+}</pre>
+  </div>
+</section>
+
+<!-- Top-level fields -->
+<section class="card-flush mb-6">
+  <div class="px-5 py-4 border-b divider" style="background:var(--surface-2)">
+    <h2 class="text-sm font-semibold text-main">Top-Level Fields</h2>
+  </div>
+  <div class="p-5">
+    <table class="w-full text-sm">
+      <thead>
+        <tr class="text-left text-muted border-b divider">
+          <th class="pb-3 pr-4 font-medium">Field</th>
+          <th class="pb-3 pr-4 font-medium">Type</th>
+          <th class="pb-3 pr-4 font-medium">Required</th>
+          <th class="pb-3 font-medium">Description</th>
+        </tr>
+      </thead>
+      <tbody class="text-main">
+        <tr class="border-b divider">
+          <td class="py-3 pr-4"><code class="code-chip">name</code></td>
+          <td class="py-3 pr-4 text-muted font-mono text-xs">string</td>
+          <td class="py-3 pr-4"><span class="badge badge-success">required</span></td>
+          <td class="py-3 text-muted">Application name. Combined with org slug for the Modal app name.</td>
+        </tr>
+        <tr>
+          <td class="py-3 pr-4"><code class="code-chip">services</code></td>
+          <td class="py-3 pr-4 text-muted font-mono text-xs">Service[]</td>
+          <td class="py-3 pr-4"><span class="badge badge-success">required</span></td>
+          <td class="py-3 text-muted">Array of infrastructure and compute service definitions.</td>
+        </tr>
+      </tbody>
+    </table>
+  </div>
+</section>
+
+<!-- Service types nav -->
+<section class="mb-6">
+  <h2 class="text-lg font-semibold text-main mb-4">Service Types</h2>
+  <p class="text-sm text-muted mb-4">
+    All resources are entries in the <code class="code-chip">services</code> array, discriminated by the <code class="code-chip">type</code> field.
+    Infra services are provisioned first; compute services can reference their outputs via <code class="code-chip">fromService</code>.
+  </p>
+
+  <div class="grid gap-3 sm:grid-cols-2 lg:grid-cols-4 mb-6">
+    <button class="card text-left px-4 py-3 svc-tab active" data-target="svc-postgres"
+            onclick="showSection(this, 'svc-postgres')">
+      <div class="text-sm font-semibold text-main">postgres</div>
+      <div class="text-xs text-muted mt-0.5">Neon serverless database</div>
+    </button>
+    <button class="card text-left px-4 py-3 svc-tab" data-target="svc-redis"
+            onclick="showSection(this, 'svc-redis')">
+      <div class="text-sm font-semibold text-main">redis</div>
+      <div class="text-xs text-muted mt-0.5">Upstash cache</div>
+    </button>
+    <button class="card text-left px-4 py-3 svc-tab" data-target="svc-web"
+            onclick="showSection(this, 'svc-web')">
+      <div class="text-sm font-semibold text-main">web</div>
+      <div class="text-xs text-muted mt-0.5">Public HTTP endpoint</div>
+    </button>
+    <button class="card text-left px-4 py-3 svc-tab" data-target="svc-worker"
+            onclick="showSection(this, 'svc-worker')">
+      <div class="text-sm font-semibold text-main">worker</div>
+      <div class="text-xs text-muted mt-0.5">Background process</div>
+    </button>
+  </div>
+
+  <!-- postgres -->
+  <div id="svc-postgres" class="svc-section">
+    <div class="card-flush">
+      <div class="px-5 py-4 border-b divider" style="background:var(--surface-2)">
+        <div class="flex items-center justify-between">
+          <h3 class="text-sm font-semibold text-main">postgres</h3>
+          <span class="badge badge-neutral">Infrastructure</span>
+        </div>
+        <p class="text-xs text-muted mt-1">Provisions a serverless Postgres database via Neon. Outputs are available to compute services via <code class="code-chip">fromService</code>.</p>
+      </div>
+      <div class="p-5">
+        <table class="w-full text-sm mb-6">
+          <thead>
+            <tr class="text-left text-muted border-b divider">
+              <th class="pb-3 pr-4 font-medium">Field</th>
+              <th class="pb-3 pr-4 font-medium">Type</th>
+              <th class="pb-3 pr-4 font-medium">Required</th>
+              <th class="pb-3 font-medium">Description</th>
+            </tr>
+          </thead>
+          <tbody class="text-main">
+            <tr class="border-b divider">
+              <td class="py-3 pr-4"><code class="code-chip">id</code></td>
+              <td class="py-3 pr-4 text-muted font-mono text-xs">string</td>
+              <td class="py-3 pr-4"><span class="badge badge-success">required</span></td>
+              <td class="py-3 text-muted">Unique identifier used in <code class="code-chip">fromService</code> references.</td>
+            </tr>
+            <tr class="border-b divider">
+              <td class="py-3 pr-4"><code class="code-chip">type</code></td>
+              <td class="py-3 pr-4 text-muted font-mono text-xs">"postgres"</td>
+              <td class="py-3 pr-4"><span class="badge badge-success">required</span></td>
+              <td class="py-3 text-muted">Must be <code class="code-chip">"postgres"</code>.</td>
+            </tr>
+            <tr>
+              <td class="py-3 pr-4"><code class="code-chip">schema</code></td>
+              <td class="py-3 pr-4 text-muted font-mono text-xs">string</td>
+              <td class="py-3 pr-4"><span class="badge badge-neutral">optional</span></td>
+              <td class="py-3 text-muted">SQL to run after provisioning (e.g. <code class="code-chip">CREATE TABLE</code> statements).</td>
+            </tr>
+          </tbody>
+        </table>
+
+        <h4 class="text-sm font-semibold text-main mb-3">Output Fields</h4>
+        <p class="text-xs text-muted mb-3">Available via <code class="code-chip">fromService.value</code> in compute service env vars.</p>
+        <table class="w-full text-sm">
+          <thead>
+            <tr class="text-left text-muted border-b divider">
+              <th class="pb-3 pr-4 font-medium">Value</th>
+              <th class="pb-3 font-medium">Description</th>
+            </tr>
+          </thead>
+          <tbody class="text-main">
+            <tr class="border-b divider">
+              <td class="py-3 pr-4"><code class="code-chip">connectionString</code></td>
+              <td class="py-3 text-muted">Full Neon connection URI (<code class="code-chip">postgresql://...</code>)</td>
+            </tr>
+            <tr class="border-b divider">
+              <td class="py-3 pr-4"><code class="code-chip">project_id</code></td>
+              <td class="py-3 text-muted">Neon project ID</td>
+            </tr>
+            <tr>
+              <td class="py-3 pr-4"><code class="code-chip">database_name</code></td>
+              <td class="py-3 text-muted">Neon database name</td>
+            </tr>
+          </tbody>
+        </table>
+
+        <div class="mt-5">
+          <h4 class="text-xs font-semibold text-muted uppercase tracking-wide mb-2">Example</h4>
+          <pre class="code-block text-sm">{ "id": "maindb", "type": "postgres" }</pre>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- redis -->
+  <div id="svc-redis" class="svc-section" style="display:none">
+    <div class="card-flush">
+      <div class="px-5 py-4 border-b divider" style="background:var(--surface-2)">
+        <div class="flex items-center justify-between">
+          <h3 class="text-sm font-semibold text-main">redis</h3>
+          <span class="badge badge-neutral">Infrastructure</span>
+        </div>
+        <p class="text-xs text-muted mt-1">Provisions a Redis cache via Upstash.</p>
+      </div>
+      <div class="p-5">
+        <table class="w-full text-sm mb-6">
+          <thead>
+            <tr class="text-left text-muted border-b divider">
+              <th class="pb-3 pr-4 font-medium">Field</th>
+              <th class="pb-3 pr-4 font-medium">Type</th>
+              <th class="pb-3 pr-4 font-medium">Required</th>
+              <th class="pb-3 font-medium">Description</th>
+            </tr>
+          </thead>
+          <tbody class="text-main">
+            <tr class="border-b divider">
+              <td class="py-3 pr-4"><code class="code-chip">id</code></td>
+              <td class="py-3 pr-4 text-muted font-mono text-xs">string</td>
+              <td class="py-3 pr-4"><span class="badge badge-success">required</span></td>
+              <td class="py-3 text-muted">Unique identifier used in <code class="code-chip">fromService</code> references.</td>
+            </tr>
+            <tr>
+              <td class="py-3 pr-4"><code class="code-chip">type</code></td>
+              <td class="py-3 pr-4 text-muted font-mono text-xs">"redis"</td>
+              <td class="py-3 pr-4"><span class="badge badge-success">required</span></td>
+              <td class="py-3 text-muted">Must be <code class="code-chip">"redis"</code>.</td>
+            </tr>
+          </tbody>
+        </table>
+
+        <h4 class="text-sm font-semibold text-main mb-3">Output Fields</h4>
+        <table class="w-full text-sm">
+          <thead>
+            <tr class="text-left text-muted border-b divider">
+              <th class="pb-3 pr-4 font-medium">Value</th>
+              <th class="pb-3 font-medium">Description</th>
+            </tr>
+          </thead>
+          <tbody class="text-main">
+            <tr class="border-b divider">
+              <td class="py-3 pr-4"><code class="code-chip">connectionString</code></td>
+              <td class="py-3 text-muted">Full Redis URI (<code class="code-chip">rediss://:&lt;password&gt;@&lt;host&gt;:&lt;port&gt;</code>)</td>
+            </tr>
+            <tr class="border-b divider">
+              <td class="py-3 pr-4"><code class="code-chip">host</code></td>
+              <td class="py-3 text-muted">Upstash endpoint hostname</td>
+            </tr>
+            <tr class="border-b divider">
+              <td class="py-3 pr-4"><code class="code-chip">port</code></td>
+              <td class="py-3 text-muted">Port number (as string)</td>
+            </tr>
+            <tr class="border-b divider">
+              <td class="py-3 pr-4"><code class="code-chip">authToken</code></td>
+              <td class="py-3 text-muted">Upstash password</td>
+            </tr>
+            <tr>
+              <td class="py-3 pr-4"><code class="code-chip">restToken</code></td>
+              <td class="py-3 text-muted">Upstash REST API token</td>
+            </tr>
+          </tbody>
+        </table>
+
+        <div class="mt-5">
+          <h4 class="text-xs font-semibold text-muted uppercase tracking-wide mb-2">Example</h4>
+          <pre class="code-block text-sm">{ "id": "cache", "type": "redis" }</pre>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- web -->
+  <div id="svc-web" class="svc-section" style="display:none">
+    <div class="card-flush">
+      <div class="px-5 py-4 border-b divider" style="background:var(--surface-2)">
+        <div class="flex items-center justify-between">
+          <h3 class="text-sm font-semibold text-main">web</h3>
+          <span class="badge badge-neutral">Compute</span>
+        </div>
+        <p class="text-xs text-muted mt-1">A compute service with a public HTTP endpoint, deployed to Modal via <code class="code-chip">@modal.web_server</code>.</p>
+      </div>
+      <div class="p-5">
+        <table class="w-full text-sm">
+          <thead>
+            <tr class="text-left text-muted border-b divider">
+              <th class="pb-3 pr-4 font-medium">Field</th>
+              <th class="pb-3 pr-4 font-medium">Type</th>
+              <th class="pb-3 pr-4 font-medium">Required</th>
+              <th class="pb-3 pr-4 font-medium">Default</th>
+              <th class="pb-3 font-medium">Description</th>
+            </tr>
+          </thead>
+          <tbody class="text-main">
+            <tr class="border-b divider">
+              <td class="py-3 pr-4"><code class="code-chip">id</code></td>
+              <td class="py-3 pr-4 text-muted font-mono text-xs">string</td>
+              <td class="py-3 pr-4"><span class="badge badge-success">required</span></td>
+              <td class="py-3 pr-4 text-muted">—</td>
+              <td class="py-3 text-muted">Unique identifier. Also used as the Modal function name.</td>
+            </tr>
+            <tr class="border-b divider">
+              <td class="py-3 pr-4"><code class="code-chip">type</code></td>
+              <td class="py-3 pr-4 text-muted font-mono text-xs">"web"</td>
+              <td class="py-3 pr-4"><span class="badge badge-neutral">optional</span></td>
+              <td class="py-3 pr-4 text-muted font-mono text-xs">"web"</td>
+              <td class="py-3 text-muted">Service type. Defaults to <code class="code-chip">"web"</code> if omitted.</td>
+            </tr>
+            <tr class="border-b divider">
+              <td class="py-3 pr-4"><code class="code-chip">runtime</code></td>
+              <td class="py-3 pr-4 text-muted font-mono text-xs">string</td>
+              <td class="py-3 pr-4"><span class="badge badge-neutral">optional</span></td>
+              <td class="py-3 pr-4 text-muted text-xs">auto-detected</td>
+              <td class="py-3 text-muted"><code class="code-chip">python</code> · <code class="code-chip">nodejs</code> · <code class="code-chip">nextjs</code> · <code class="code-chip">docker</code> · <code class="code-chip">go</code></td>
+            </tr>
+            <tr class="border-b divider">
+              <td class="py-3 pr-4"><code class="code-chip">basePath</code></td>
+              <td class="py-3 pr-4 text-muted font-mono text-xs">string</td>
+              <td class="py-3 pr-4"><span class="badge badge-neutral">optional</span></td>
+              <td class="py-3 pr-4 text-muted text-xs">service id</td>
+              <td class="py-3 text-muted">Directory containing service source, relative to <code class="code-chip">zcp.json</code>.</td>
+            </tr>
+            <tr class="border-b divider">
+              <td class="py-3 pr-4"><code class="code-chip">start</code></td>
+              <td class="py-3 pr-4 text-muted font-mono text-xs">string</td>
+              <td class="py-3 pr-4"><span class="badge badge-success">required</span></td>
+              <td class="py-3 pr-4 text-muted">—</td>
+              <td class="py-3 text-muted">Shell command to start the service.</td>
+            </tr>
+            <tr class="border-b divider">
+              <td class="py-3 pr-4"><code class="code-chip">port</code></td>
+              <td class="py-3 pr-4 text-muted font-mono text-xs">integer</td>
+              <td class="py-3 pr-4"><span class="badge badge-neutral">optional</span></td>
+              <td class="py-3 pr-4 text-muted font-mono text-xs">8000</td>
+              <td class="py-3 text-muted">Port the service listens on.</td>
+            </tr>
+            <tr class="border-b divider">
+              <td class="py-3 pr-4"><code class="code-chip">scaling</code></td>
+              <td class="py-3 pr-4 text-muted font-mono text-xs">Scaling</td>
+              <td class="py-3 pr-4"><span class="badge badge-neutral">optional</span></td>
+              <td class="py-3 pr-4 text-muted font-mono text-xs">{"min":1,"max":3}</td>
+              <td class="py-3 text-muted">Autoscaling bounds. See <a href="#scaling" class="text-accent">Scaling</a>.</td>
+            </tr>
+            <tr>
+              <td class="py-3 pr-4"><code class="code-chip">env</code></td>
+              <td class="py-3 pr-4 text-muted font-mono text-xs">EnvVar[]</td>
+              <td class="py-3 pr-4"><span class="badge badge-neutral">optional</span></td>
+              <td class="py-3 pr-4 text-muted font-mono text-xs">[]</td>
+              <td class="py-3 text-muted">Environment variables. See <a href="#env-vars" class="text-accent">Environment Variables</a>.</td>
+            </tr>
+          </tbody>
+        </table>
+
+        <div class="mt-5">
+          <h4 class="text-xs font-semibold text-muted uppercase tracking-wide mb-2">Example</h4>
+          <pre class="code-block text-sm leading-relaxed overflow-x-auto">{
+  "id": "api",
+  "type": "web",
+  "runtime": "python",
+  "basePath": "backend",
+  "start": "gunicorn app:app --bind 0.0.0.0:5001 --workers 2",
+  "port": 5001,
+  "scaling": { "min": 1, "max": 3 },
+  "env": [
+    { "name": "DATABASE_URL", "fromService": { "id": "maindb", "value": "connectionString" } }
+  ]
+}</pre>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- worker -->
+  <div id="svc-worker" class="svc-section" style="display:none">
+    <div class="card-flush">
+      <div class="px-5 py-4 border-b divider" style="background:var(--surface-2)">
+        <div class="flex items-center justify-between">
+          <h3 class="text-sm font-semibold text-main">worker</h3>
+          <span class="badge badge-neutral">Compute</span>
+        </div>
+        <p class="text-xs text-muted mt-1">A background process with no HTTP endpoint. Runs as a blocking subprocess via <code class="code-chip">@app.function</code> on Modal.</p>
+      </div>
+      <div class="p-5">
+        <table class="w-full text-sm">
+          <thead>
+            <tr class="text-left text-muted border-b divider">
+              <th class="pb-3 pr-4 font-medium">Field</th>
+              <th class="pb-3 pr-4 font-medium">Type</th>
+              <th class="pb-3 pr-4 font-medium">Required</th>
+              <th class="pb-3 pr-4 font-medium">Default</th>
+              <th class="pb-3 font-medium">Description</th>
+            </tr>
+          </thead>
+          <tbody class="text-main">
+            <tr class="border-b divider">
+              <td class="py-3 pr-4"><code class="code-chip">id</code></td>
+              <td class="py-3 pr-4 text-muted font-mono text-xs">string</td>
+              <td class="py-3 pr-4"><span class="badge badge-success">required</span></td>
+              <td class="py-3 pr-4 text-muted">—</td>
+              <td class="py-3 text-muted">Unique identifier.</td>
+            </tr>
+            <tr class="border-b divider">
+              <td class="py-3 pr-4"><code class="code-chip">type</code></td>
+              <td class="py-3 pr-4 text-muted font-mono text-xs">"worker"</td>
+              <td class="py-3 pr-4"><span class="badge badge-success">required</span></td>
+              <td class="py-3 pr-4 text-muted">—</td>
+              <td class="py-3 text-muted">Must be <code class="code-chip">"worker"</code>.</td>
+            </tr>
+            <tr class="border-b divider">
+              <td class="py-3 pr-4"><code class="code-chip">runtime</code></td>
+              <td class="py-3 pr-4 text-muted font-mono text-xs">string</td>
+              <td class="py-3 pr-4"><span class="badge badge-neutral">optional</span></td>
+              <td class="py-3 pr-4 text-muted text-xs">auto-detected</td>
+              <td class="py-3 text-muted">Same runtimes as <code class="code-chip">web</code>.</td>
+            </tr>
+            <tr class="border-b divider">
+              <td class="py-3 pr-4"><code class="code-chip">basePath</code></td>
+              <td class="py-3 pr-4 text-muted font-mono text-xs">string</td>
+              <td class="py-3 pr-4"><span class="badge badge-neutral">optional</span></td>
+              <td class="py-3 pr-4 text-muted text-xs">service id</td>
+              <td class="py-3 text-muted">Directory containing service source.</td>
+            </tr>
+            <tr class="border-b divider">
+              <td class="py-3 pr-4"><code class="code-chip">start</code></td>
+              <td class="py-3 pr-4 text-muted font-mono text-xs">string</td>
+              <td class="py-3 pr-4"><span class="badge badge-success">required</span></td>
+              <td class="py-3 pr-4 text-muted">—</td>
+              <td class="py-3 text-muted">Shell command to start the worker.</td>
+            </tr>
+            <tr class="border-b divider">
+              <td class="py-3 pr-4"><code class="code-chip">scaling</code></td>
+              <td class="py-3 pr-4 text-muted font-mono text-xs">Scaling</td>
+              <td class="py-3 pr-4"><span class="badge badge-neutral">optional</span></td>
+              <td class="py-3 pr-4 text-muted font-mono text-xs">{"min":1,"max":3}</td>
+              <td class="py-3 text-muted">Autoscaling bounds.</td>
+            </tr>
+            <tr>
+              <td class="py-3 pr-4"><code class="code-chip">env</code></td>
+              <td class="py-3 pr-4 text-muted font-mono text-xs">EnvVar[]</td>
+              <td class="py-3 pr-4"><span class="badge badge-neutral">optional</span></td>
+              <td class="py-3 pr-4 text-muted font-mono text-xs">[]</td>
+              <td class="py-3 text-muted">Environment variables.</td>
+            </tr>
+          </tbody>
+        </table>
+
+        <div class="mt-5">
+          <h4 class="text-xs font-semibold text-muted uppercase tracking-wide mb-2">Example</h4>
+          <pre class="code-block text-sm leading-relaxed overflow-x-auto">{
+  "id": "temporal-worker",
+  "type": "worker",
+  "runtime": "python",
+  "basePath": ".",
+  "start": "python -m apps.workflows.worker",
+  "scaling": { "min": 1, "max": 1 }
+}</pre>
+        </div>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- Scaling -->
+<section id="scaling" class="card-flush mb-6">
+  <div class="px-5 py-4 border-b divider" style="background:var(--surface-2)">
+    <h2 class="text-sm font-semibold text-main">Scaling</h2>
+  </div>
+  <div class="p-5">
+    <table class="w-full text-sm">
+      <thead>
+        <tr class="text-left text-muted border-b divider">
+          <th class="pb-3 pr-4 font-medium">Field</th>
+          <th class="pb-3 pr-4 font-medium">Type</th>
+          <th class="pb-3 pr-4 font-medium">Default</th>
+          <th class="pb-3 font-medium">Description</th>
+        </tr>
+      </thead>
+      <tbody class="text-main">
+        <tr class="border-b divider">
+          <td class="py-3 pr-4"><code class="code-chip">min</code></td>
+          <td class="py-3 pr-4 text-muted font-mono text-xs">integer</td>
+          <td class="py-3 pr-4 text-muted font-mono text-xs">1</td>
+          <td class="py-3 text-muted">Minimum containers. Set to <code class="code-chip">0</code> for scale-to-zero.</td>
+        </tr>
+        <tr>
+          <td class="py-3 pr-4"><code class="code-chip">max</code></td>
+          <td class="py-3 pr-4 text-muted font-mono text-xs">integer</td>
+          <td class="py-3 pr-4 text-muted font-mono text-xs">3</td>
+          <td class="py-3 text-muted">Maximum containers.</td>
+        </tr>
+      </tbody>
+    </table>
+  </div>
+</section>
+
+<!-- Environment Variables -->
+<section id="env-vars" class="card-flush mb-6">
+  <div class="px-5 py-4 border-b divider" style="background:var(--surface-2)">
+    <h2 class="text-sm font-semibold text-main">Environment Variables</h2>
+  </div>
+  <div class="p-5">
+    <p class="text-sm text-muted mb-4">Each entry in the <code class="code-chip">env</code> array is either a static value or a cross-service reference.</p>
+
+    <h4 class="text-sm font-semibold text-main mb-3">Static Value</h4>
+    <pre class="code-block text-sm mb-5">{ "name": "FLASK_ENV", "value": "production" }</pre>
+
+    <h4 class="text-sm font-semibold text-main mb-3">Service Reference</h4>
+    <pre class="code-block text-sm mb-5">{ "name": "DATABASE_URL", "fromService": { "id": "maindb", "value": "connectionString" } }</pre>
+
+    <h4 class="text-sm font-semibold text-main mb-3">fromService Reference</h4>
+    <table class="w-full text-sm">
+      <thead>
+        <tr class="text-left text-muted border-b divider">
+          <th class="pb-3 pr-4 font-medium">Field</th>
+          <th class="pb-3 pr-4 font-medium">Type</th>
+          <th class="pb-3 font-medium">Description</th>
+        </tr>
+      </thead>
+      <tbody class="text-main">
+        <tr class="border-b divider">
+          <td class="py-3 pr-4"><code class="code-chip">id</code></td>
+          <td class="py-3 pr-4 text-muted font-mono text-xs">string</td>
+          <td class="py-3 text-muted">The <code class="code-chip">id</code> of the infra service to reference.</td>
+        </tr>
+        <tr>
+          <td class="py-3 pr-4"><code class="code-chip">value</code></td>
+          <td class="py-3 pr-4 text-muted font-mono text-xs">string</td>
+          <td class="py-3 text-muted">The output field to read. See the output tables for each infra service type.</td>
+        </tr>
+      </tbody>
+    </table>
+  </div>
+</section>
+
+<!-- Runtime Detection -->
+<section class="card-flush mb-6">
+  <div class="px-5 py-4 border-b divider" style="background:var(--surface-2)">
+    <h2 class="text-sm font-semibold text-main">Runtime Auto-Detection</h2>
+  </div>
+  <div class="p-5">
+    <p class="text-sm text-muted mb-4">
+      When <code class="code-chip">runtime</code> is omitted, ZCP detects it from the service's <code class="code-chip">basePath</code> directory:
+    </p>
+    <table class="w-full text-sm">
+      <thead>
+        <tr class="text-left text-muted border-b divider">
+          <th class="pb-3 pr-4 font-medium">File Found</th>
+          <th class="pb-3 font-medium">Detected Runtime</th>
+        </tr>
+      </thead>
+      <tbody class="text-main">
+        <tr class="border-b divider">
+          <td class="py-3 pr-4"><code class="code-chip">Dockerfile</code></td>
+          <td class="py-3 text-muted"><code class="code-chip">docker</code></td>
+        </tr>
+        <tr class="border-b divider">
+          <td class="py-3 pr-4"><code class="code-chip">package.json</code> with <code class="code-chip">next</code> dependency</td>
+          <td class="py-3 text-muted"><code class="code-chip">nextjs</code></td>
+        </tr>
+        <tr class="border-b divider">
+          <td class="py-3 pr-4"><code class="code-chip">package.json</code> without <code class="code-chip">next</code></td>
+          <td class="py-3 text-muted"><code class="code-chip">nodejs</code></td>
+        </tr>
+        <tr class="border-b divider">
+          <td class="py-3 pr-4"><code class="code-chip">requirements.txt</code> or <code class="code-chip">pyproject.toml</code></td>
+          <td class="py-3 text-muted"><code class="code-chip">python</code></td>
+        </tr>
+        <tr>
+          <td class="py-3 pr-4"><code class="code-chip">go.mod</code></td>
+          <td class="py-3 text-muted"><code class="code-chip">go</code></td>
+        </tr>
+      </tbody>
+    </table>
+  </div>
+</section>
+
+<!-- Two-Pass Deploy -->
+<section class="card-flush mb-6">
+  <div class="px-5 py-4 border-b divider" style="background:var(--surface-2)">
+    <h2 class="text-sm font-semibold text-main">Next.js Two-Pass Deploy</h2>
+  </div>
+  <div class="p-5">
+    <p class="text-sm text-muted mb-4">
+      When a manifest contains both a non-Next.js <code class="code-chip">web</code> service and a <code class="code-chip">nextjs</code> service,
+      ZCP uses a two-pass deploy strategy:
+    </p>
+    <ol class="text-sm text-muted space-y-2 ml-4 list-decimal">
+      <li><strong class="text-main">Pass 1:</strong> Deploy non-Next.js web services only. Capture the API URL.</li>
+      <li><strong class="text-main">Pass 2:</strong> Deploy all services with <code class="code-chip">NEXT_PUBLIC_API_URL</code> injected into the Next.js image build.</li>
+    </ol>
+    <p class="text-sm text-muted mt-4">
+      This ensures <code class="code-chip">NEXT_PUBLIC_*</code> env vars are available at build time (baked into the static bundle by Next.js).
+    </p>
+  </div>
+</section>
+
+<!-- JSON Schema -->
+<section class="card-flush mb-6">
+  <div class="px-5 py-4 border-b divider" style="background:var(--surface-2)">
+    <div class="flex items-center justify-between">
+      <h2 class="text-sm font-semibold text-main">JSON Schema</h2>
+      <button class="btn-sm text-xs" style="background:var(--surface-2);border:1px solid var(--border);color:var(--text);border-radius:0.5rem;padding:0.25rem 0.75rem;cursor:pointer"
+              onclick="navigator.clipboard.writeText(document.getElementById('schema-raw').textContent);this.textContent='Copied!';setTimeout(()=>this.textContent='Copy',1500)">
+        Copy
+      </button>
+    </div>
+    <p class="text-xs text-muted mt-1">Add <code class="code-chip">"$schema"</code> to your zcp.json for VS Code autocomplete and validation.</p>
+  </div>
+  <div class="p-5">
+    <pre class="code-block text-xs leading-relaxed overflow-x-auto" style="max-height:400px" id="schema-raw">{{ schema_json }}</pre>
+  </div>
+</section>
+
+<style>
+  .svc-tab {
+    cursor: pointer;
+    transition: border-color 0.15s, background 0.15s;
+  }
+  .svc-tab:hover {
+    border-color: var(--accent-25) !important;
+  }
+  .svc-tab.active {
+    border-color: var(--accent) !important;
+    background: var(--accent-10) !important;
+  }
+</style>
+
+<script>
+function showSection(btn, id) {
+  document.querySelectorAll('.svc-section').forEach(function(s) { s.style.display = 'none'; });
+  document.querySelectorAll('.svc-tab').forEach(function(t) { t.classList.remove('active'); });
+  document.getElementById(id).style.display = 'block';
+  btn.classList.add('active');
+}
+</script>
+
+{% endblock %}

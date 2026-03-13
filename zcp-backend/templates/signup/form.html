@@ -1,0 +1,60 @@
+{% extends "base.html" %}
+{% block title %}Sign Up — ZCP{% endblock %}
+{% block content %}
+<div class="max-w-lg mx-auto mt-10">
+  <div class="text-center mb-8">
+    <div class="w-10 h-10 rounded-xl mx-auto mb-4 flex items-center justify-center"
+         style="background:var(--accent-10);border:1px solid var(--accent-25)">
+      <span class="text-accent font-mono font-semibold">Z</span>
+    </div>
+    <h1 class="text-2xl font-semibold text-main">Create your account</h1>
+    <p class="text-sm text-muted mt-1">Provision your workspace in ~30 seconds</p>
+  </div>
+
+  <div class="card">
+    <p class="text-xs font-medium text-muted uppercase tracking-wide mb-4">Account credentials</p>
+    <form method="post" class="space-y-4">
+      {% csrf_token %}
+      {% for field in form %}
+        {% if field.html_name == 'org_name' %}
+          <div class="border-t divider pt-5 mt-5">
+            <p class="text-xs font-medium text-muted uppercase tracking-wide mb-4">Organization</p>
+          </div>
+        {% endif %}
+        <div>
+          <label for="{{ field.id_for_label }}" class="block text-xs font-medium text-muted uppercase tracking-wide mb-1.5">
+            {{ field.label }}
+          </label>
+          <input
+            type="{{ field.field.widget.input_type }}"
+            name="{{ field.html_name }}"
+            id="{{ field.id_for_label }}"
+            {% if field.value %}value="{{ field.value }}"{% endif %}
+            {% if field.field.required %}required{% endif %}
+            class="input-field{% if field.errors %} has-error{% endif %}"
+          >
+          {% if field.help_text %}
+            <p class="text-xs text-muted mt-1.5">{{ field.help_text }}</p>
+          {% endif %}
+          {% for error in field.errors %}
+            <p class="text-xs mt-1.5" style="color:var(--e-tx)">{{ error }}</p>
+          {% endfor %}
+        </div>
+      {% endfor %}
+
+      {% if form.non_field_errors %}
+        <div class="alert-error">{{ form.non_field_errors|join:" " }}</div>
+      {% endif %}
+
+      <div class="pt-2">
+        <button type="submit" class="btn-primary w-full">Create account &amp; provision workspace</button>
+      </div>
+    </form>
+  </div>
+
+  <p class="text-sm text-muted text-center mt-6">
+    Already have an account?
+    <a href="{% url 'login' %}" class="text-accent hover:opacity-80 font-medium">Log in</a>
+  </p>
+</div>
+{% endblock %}

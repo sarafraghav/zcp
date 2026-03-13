@@ -1,0 +1,111 @@
+{% for r in redis_list %}
+  <div class="{% if not forloop.last %}pb-5 mb-5 border-b divider{% endif %}">
+    <div class="flex items-start justify-between mb-4">
+      <div>
+        <p class="text-sm font-semibold text-main">{{ r.endpoint|default:"Upstash Redis" }}</p>
+        <p class="text-xs text-muted font-mono mt-0.5">{{ r.created_at|date:"Y-m-d H:i" }}</p>
+      </div>
+      <span class="badge ml-3
+        {% if r.status == 'ready' %}badge-success
+        {% elif r.status == 'provisioning' %}badge-warn
+        {% elif r.status == 'error' %}badge-error
+        {% else %}badge-neutral{% endif %}">
+        {{ r.status }}
+      </span>
+    </div>
+
+    <dl class="space-y-2.5 mb-4">
+      <div>
+        <dt class="text-xs text-muted mb-1">Service ID</dt>
+        <dd><span class="code-chip">{{ r.service_id }}</span></dd>
+      </div>
+      <div>
+        <dt class="text-xs text-muted mb-1">Database ID</dt>
+        <dd><span class="code-chip">{{ r.database_id|default:"—" }}</span></dd>
+      </div>
+      <div>
+        <dt class="text-xs text-muted mb-1">Endpoint</dt>
+        <dd><span class="code-chip">{{ r.endpoint|default:"—" }}</span></dd>
+      </div>
+      <div class="flex gap-6">
+        <div>
+          <dt class="text-xs text-muted mb-1">Port</dt>
+          <dd><span class="code-chip">{{ r.port }}</span></dd>
+        </div>
+        <div>
+          <dt class="text-xs text-muted mb-1">Workflow ID</dt>
+          <dd><span class="code-chip">{{ r.temporal_workflow_id }}</span></dd>
+        </div>
+      </div>
+    </dl>
+
+    {% if r.endpoint %}
+      <details class="mb-4">
+        <summary>Env Vars ↓</summary>
+        <div class="mt-2 rounded-lg p-3 space-y-1.5" style="background:var(--surface-2);border:1px solid var(--border)">
+          {% for label, val in r.env_vars %}
+            <div class="flex items-baseline gap-2">
+              <span class="font-mono text-xs font-semibold text-muted flex-shrink-0 w-36">{{ label }}</span>
+              <code class="font-mono text-xs text-main break-all">{{ val }}</code>
+            </div>
+          {% endfor %}
+        </div>
+      </details>
+    {% endif %}
+
+    {% if r.rest_token %}
+      <details class="mb-4">
+        <summary>Credentials ↓</summary>
+        <div class="mt-2 space-y-2.5 rounded-lg p-3" style="background:var(--surface-2);border:1px solid var(--border)">
+          {% if r.password %}
+            <div>
+              <p class="text-xs text-muted mb-1">Password</p>
+              <code class="font-mono text-xs text-main break-all">{{ r.password }}</code>
+            </div>
+          {% endif %}
+          <div>
+            <p class="text-xs text-muted mb-1">REST Token</p>
+            <code class="font-mono text-xs text-main break-all">{{ r.rest_token }}</code>
+          </div>
+        </div>
+      </details>
+    {% endif %}
+
+    {% if r.status == 'ready' %}
+      <div class="border-t divider pt-4">
+        <p class="text-xs font-semibold text-muted uppercase tracking-wide mb-3">GET / SET Key</p>
+        <form
+          hx-post="{% url 'dashboard:redis-command' r.id %}"
+          hx-target="#redis-results-{{ r.id }}"
+          hx-swap="innerHTML"
+        >
+          {% csrf_token %}
+          <div class="flex gap-2 mb-2">
+            <select name="command" class="select-field flex-shrink-0">
+              <option value="GET">GET</option>
+              <option value="SET">SET</option>
+            </select>
+            <input
+              name="key"
+              type="text"
+              placeholder="key"
+              class="input-field font-mono"
+              style="font-size:0.75rem;padding:0.375rem 0.625rem"
+            >
+            <input
+              name="value"
+              type="text"
+              placeholder="value (SET only)"
+              class="input-field font-mono"
+              style="font-size:0.75rem;padding:0.375rem 0.625rem"
+            >
+          </div>
+          <button type="submit" class="btn-primary btn-sm">Run</button>
+        </form>
+        <div id="redis-results-{{ r.id }}" class="mt-3"></div>
+      </div>
+    {% endif %}
+  </div>
+{% empty %}
+  <p class="text-sm text-muted">No Redis provisioned yet.</p>
+{% endfor %}

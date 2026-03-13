@@ -1,0 +1,22 @@
+{% extends "base.html" %}
+{% block title %}Provisioning… — ZCP{% endblock %}
+{% block content %}
+<div class="max-w-lg mx-auto mt-16">
+  <div class="text-center mb-8">
+    <div class="w-10 h-10 rounded-xl mx-auto mb-4 flex items-center justify-center"
+         style="background:var(--accent-10);border:1px solid var(--accent-25)">
+      <span class="text-accent font-mono font-semibold">Z</span>
+    </div>
+    <h1 class="text-2xl font-semibold text-main">Setting up your org</h1>
+    <p class="text-sm text-muted mt-1">This usually takes about 30 seconds</p>
+  </div>
+
+  <div
+    hx-get="{% url 'dashboard:org-status' workflow_id %}"
+    hx-trigger="load, every 2s"
+    hx-swap="outerHTML"
+  >
+    {% include "dashboard/_org_status_partial.html" with status="running" %}
+  </div>
+</div>
+{% endblock %}

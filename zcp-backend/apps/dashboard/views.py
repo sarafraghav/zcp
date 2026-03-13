@@ -1,0 +1,352 @@
+"""
+FE view layer — thin wrappers that call the service layer and render HTMX templates.
+No business logic or direct DB/Temporal access lives here.
+"""
+import asyncio
+import subprocess
+from django.contrib.auth import login
+from django.contrib.auth.mixins import LoginRequiredMixin
+from django.http import HttpResponseBadRequest
+from django.shortcuts import render, get_object_or_404, redirect
+from django.views import View
+from django_htmx.http import HttpResponseClientRedirect
+
+from apps.accounts.models import User
+from apps.accounts.forms import SignupForm
+from apps.dashboard.forms import CreateOrgForm
+from apps.workflows.services import start_signup_workflow, get_workflow_status
+from apps.dashboard.services import get_dashboard
+
+
+def _active_org_id(request, dashboard):
+    """Return the active org ID from session, defaulting to the first org."""
+    orgs = dashboard.organizations
+    if not orgs:
+        return None
+    stored = request.session.get("active_org_id")
+    if stored and any(o.id == stored for o in orgs):
+        return stored
+    first_id = orgs[0].id
+    request.session["active_org_id"] = first_id
+    return first_id
+
+
+class SignupView(View):
+    def get(self, request):
+        return render(request, "signup/form.html", {"form": SignupForm()})
+
+    def post(self, request):
+        form = SignupForm(request.POST)
+        if not form.is_valid():
+            return render(request, "signup/form.html", {"form": form})
+
+        # User created in Django — password never passes through Temporal
+        user = form.save()
+        request.session["pending_signup_user_id"] = str(user.id)
+
+        result = asyncio.run(start_signup_workflow(
+            user_id=str(user.id),
+            org_name=form.cleaned_data["org_name"],
+            slug=form.cleaned_data["slug"],
+        ))
+        return render(request, "signup/status.html", {
+            "workflow_id": result.workflow_id,
+            "status": result.status,
+        })
+
+
+class WorkflowStatusView(View):
+    def get(self, request, workflow_id):
+        status_response = asyncio.run(get_workflow_status(workflow_id))
+
+        if status_response.status == "completed":
+            user_id = request.session.pop("pending_signup_user_id", None)
+            if user_id:
+                user = User.objects.get(id=user_id)
+                login(request, user, backend="django.contrib.auth.backends.ModelBackend")
+            return HttpResponseClientRedirect("/dashboard/")
+
+        return render(request, "signup/_status_partial.html", {
+            "workflow_id": status_response.workflow_id,
+            "status": status_response.status,
+        })
+
+
+class DashboardView(LoginRequiredMixin, View):
+    def get(self, request):
+        from apps.apikeys.models import APIKey
+        # Lazy-create for existing users who signed up before apikeys app
+        if not APIKey.objects.filter(user=request.user).exists():
+            APIKey.objects.create(user=request.user, name="Default")
+
+        dashboard = get_dashboard(request.user)
+        active_id = _active_org_id(request, dashboard)
+        active_org = next((o for o in dashboard.organizations if o.id == active_id), None)
+        return render(request, "dashboard/index.html", {
+            "dashboard": dashboard,
+            "active_org": active_org,
+        })
+
+
+class DatabaseListView(LoginRequiredMixin, View):
+    def get(self, request):
+        dashboard = get_dashboard(request.user)
+        active_id = request.session.get("active_org_id")
+        databases = []
+        for org in dashboard.organizations:
+            if not active_id or org.id == active_id:
+                databases.extend(org.databases)
+        return render(request, "dashboard/_database_card.html", {"databases": databases})
+
+
+class QueryDatabaseView(LoginRequiredMixin, View):
+    def post(self, request, db_id):
+        import psycopg2
+        from apps.database.models import NeonDatabase
+        from apps.accounts.models import ResourceAccessMapping
+
+        db_record = get_object_or_404(NeonDatabase, id=db_id)
+
+        if not ResourceAccessMapping.objects.filter(
+            user=request.user, organization=db_record.organization
+        ).exists():
+            return HttpResponseBadRequest("Access denied.")
+
+        sql = request.POST.get("sql", "").strip()
+        if not sql:
+            return render(request, "dashboard/_query_results.html", {"error": "No SQL provided."})
+        if sql.split()[0].upper() != "SELECT":
+            return render(request, "dashboard/_query_results.html", {"error": "Only SELECT statements are allowed."})
+
+        try:
+            conn = psycopg2.connect(db_record.connection_string)
+            conn.autocommit = True
+            with conn.cursor() as cur:
+                cur.execute(sql)
+                columns = [desc[0] for desc in cur.description] if cur.description else []
+                rows = cur.fetchall()
+            conn.close()
+            return render(request, "dashboard/_query_results.html", {
+                "columns": columns,
+                "rows": rows,
+                "row_count": len(rows),
+            })
+        except Exception as exc:
+            return render(request, "dashboard/_query_results.html", {"error": str(exc)})
+
+
+class RedisListView(LoginRequiredMixin, View):
+    def get(self, request):
+        dashboard = get_dashboard(request.user)
+        active_id = request.session.get("active_org_id")
+        redis_list = []
+        for org in dashboard.organizations:
+            if not active_id or org.id == active_id:
+                redis_list.extend(org.redis_instances)
+        return render(request, "dashboard/_redis_card.html", {"redis_list": redis_list})
+
+
+class RedisCommandView(LoginRequiredMixin, View):
+    def post(self, request, redis_id):
+        import httpx
+        from apps.redis.models import UpstashRedis
+        from apps.accounts.models import ResourceAccessMapping
+
+        r = get_object_or_404(UpstashRedis, id=redis_id)
+        if not ResourceAccessMapping.objects.filter(user=request.user, organization=r.organization).exists():
+            return HttpResponseBadRequest("Access denied.")
+
+        command = request.POST.get("command", "").strip().upper()
+        key = request.POST.get("key", "").strip()
+        value = request.POST.get("value", "").strip()
+
+        url = f"https://{r.endpoint}/{command}/{key}"
+        if command == "SET" and value:
+            url += f"/{value}"
+
+        try:
+            resp = httpx.get(url, headers={"Authorization": f"Bearer {r.rest_token}"}, timeout=10)
+            resp.raise_for_status()
+            result = resp.json()
+            return render(request, "dashboard/_redis_result.html", {"result": result})
+        except Exception as exc:
+            return render(request, "dashboard/_redis_result.html", {"error": str(exc)})
+
+
+class AppsListView(LoginRequiredMixin, View):
+    def get(self, request):
+        dashboard = get_dashboard(request.user)
+        active_id = request.session.get("active_org_id")
+        apps = []
+        for org in dashboard.organizations:
+            if not active_id or org.id == active_id:
+                apps.extend(org.deployed_apps)
+        return render(request, "dashboard/_apps_card.html", {"apps": apps})
+
+
+class CreateOrgView(LoginRequiredMixin, View):
+    def get(self, request):
+        return render(request, "dashboard/create_org.html", {"form": CreateOrgForm()})
+
+    def post(self, request):
+        form = CreateOrgForm(request.POST)
+        if not form.is_valid():
+            return render(request, "dashboard/create_org.html", {"form": form})
+
+        result = asyncio.run(start_signup_workflow(
+            user_id=str(request.user.id),
+            org_name=form.cleaned_data["org_name"],
+            slug=form.cleaned_data["slug"],
+        ))
+        return render(request, "dashboard/create_org_status.html", {
+            "workflow_id": result.workflow_id,
+        })
+
+
+class OrgWorkflowStatusView(LoginRequiredMixin, View):
+    def get(self, request, workflow_id):
+        status_response = asyncio.run(get_workflow_status(workflow_id))
+        if status_response.status == "completed":
+            return HttpResponseClientRedirect("/dashboard/")
+        return render(request, "dashboard/_org_status_partial.html", {
+            "workflow_id": status_response.workflow_id,
+            "status": status_response.status,
+        })
+
+
+class SwitchOrgView(LoginRequiredMixin, View):
+    def post(self, request, org_id):
+        from apps.accounts.models import ResourceAccessMapping
+        if not ResourceAccessMapping.objects.filter(
+            user=request.user, organization_id=org_id
+        ).exists():
+            return HttpResponseBadRequest("Access denied.")
+        request.session["active_org_id"] = str(org_id)
+        return redirect("dashboard:dashboard")
+
+
+# In-memory deletion state: org_id (str) -> {"step": int, "status": "deleting|done|error", "error": str}
+_DELETION_STEPS = [
+    "Starting",
+    "Stopping Modal app",
+    "Deleting Neon database",
+    "Deleting Redis",
+    "Removing org records",
+]
+_deletion_state: dict = {}
+
+
+class DeleteOrgView(LoginRequiredMixin, View):
+    def post(self, request, org_id):
+        import httpx
+        import threading
+        from django.conf import settings
+        from apps.accounts.models import ResourceAccessMapping
+
+        try:
+            mapping = ResourceAccessMapping.objects.prefetch_related(
+                "organization__databases",
+                "organization__redis_instances",
+                "organization__deployed_apps",
+            ).get(user=request.user, organization_id=org_id, role="owner")
+        except ResourceAccessMapping.DoesNotExist:
+            return HttpResponseBadRequest("Access denied.")
+
+        org = mapping.organization
+        org_id_str = str(org_id)
+        org_name = org.name
+
+        # Gather resource IDs before background thread (avoids lazy-load across threads)
+        redis_db_ids = list(org.redis_instances.values_list("database_id", flat=True))
+        neon_project_ids = list(org.databases.values_list("project_id", flat=True))
+
+        modal_app_names = list(org.deployed_apps.values_list("app_name", flat=True))
+
+        _deletion_state[org_id_str] = {"step": 0, "status": "deleting", "error": ""}
+
+        def do_delete():
+            try:
+                # Step 1 — Stop Modal apps
+                _deletion_state[org_id_str]["step"] = 1
+                for app_name in modal_app_names:
+                    if app_name:
+                        subprocess.run(
+                            ["modal", "app", "stop", app_name],
+                            timeout=30, capture_output=True,
+                        )
+
+                # Step 2 — Delete Neon projects
+                _deletion_state[org_id_str]["step"] = 2
+                for neon_pid in neon_project_ids:
+                    if neon_pid:
+                        httpx.delete(
+                            f"https://console.neon.tech/api/v2/projects/{neon_pid}",
+                            headers={"Authorization": f"Bearer {settings.NEON_API_KEY}"},
+                            timeout=30,
+                        )
+
+                # Step 3 — Delete Upstash Redis instances
+                _deletion_state[org_id_str]["step"] = 3
+                for rdb_id in redis_db_ids:
+                    if rdb_id:
+                        httpx.delete(
+                            f"https://api.upstash.com/v2/redis/database/{rdb_id}",
+                            auth=(settings.UPSTASH_EMAIL, settings.UPSTASH_API_KEY),
+                            timeout=30,
+                        )
+
+                # Step 4 — Delete Django records (cascades to all related models)
+                _deletion_state[org_id_str]["step"] = 4
+                from apps.organizations.models import Organization
+                Organization.objects.filter(id=org_id).delete()
+
+                _deletion_state[org_id_str]["status"] = "done"
+
+            except Exception as exc:
+                _deletion_state[org_id_str]["status"] = "error"
+                _deletion_state[org_id_str]["error"] = str(exc)
+
+        threading.Thread(target=do_delete, daemon=True).start()
+
+        if request.session.get("active_org_id") == org_id_str:
+            request.session.pop("active_org_id", None)
+
+        return render(request, "dashboard/delete_org_status.html", {
+            "org_id": org_id_str,
+            "org_name": org_name,
+            "steps": _DELETION_STEPS,
+            "step": 0,
+            "status": "deleting",
+        })
+
+
+class DeleteOrgStatusView(LoginRequiredMixin, View):
+    def get(self, request, org_id):
+        org_id_str = str(org_id)
+        state = _deletion_state.get(org_id_str, {"step": 0, "status": "deleting", "error": ""})
+        if state["status"] == "done":
+            del _deletion_state[org_id_str]
+            return HttpResponseClientRedirect("/dashboard/")
+        return render(request, "dashboard/_delete_status_partial.html", {
+            "org_id": org_id_str,
+            "step": state["step"],
+            "status": state["status"],
+            "error": state.get("error", ""),
+            "steps": _DELETION_STEPS,
+        })
+
+
+class APIKeyListView(LoginRequiredMixin, View):
+    def get(self, request):
+        from apps.apikeys.models import APIKey
+        keys = APIKey.objects.filter(user=request.user)
+        return render(request, "dashboard/_apikey_card.html", {"api_keys": keys})
+
+
+class RegenerateAPIKeyView(LoginRequiredMixin, View):
+    def post(self, request, key_id):
+        from apps.apikeys.models import APIKey
+        key = get_object_or_404(APIKey, id=key_id, user=request.user)
+        key.rotate()
+        keys = APIKey.objects.filter(user=request.user)
+        return render(request, "dashboard/_apikey_card.html", {"api_keys": keys})

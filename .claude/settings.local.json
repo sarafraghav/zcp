@@ -1,0 +1,10 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(python3 --version && pip3 --version)",
+      "Bash(python3 -m venv venv)",
+      "Bash(which uv:*)",
+      "Bash(uv run:*)"
+    ]
+  }
+}

@@ -1,0 +1,66 @@
+{% if status == "error" %}
+  <div class="card">
+    <div class="flex items-start gap-4">
+      <div class="w-8 h-8 rounded-full flex items-center justify-center flex-shrink-0 mt-0.5"
+           style="background:var(--e-bg);border:1px solid var(--e-bd)">
+        <svg class="w-4 h-4" style="color:var(--e-tx)" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+          <path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12" />
+        </svg>
+      </div>
+      <div>
+        <p class="text-sm font-semibold text-main">Deletion failed</p>
+        <p class="text-sm text-muted mt-0.5">{{ error }}</p>
+        <a href="{% url 'dashboard:dashboard' %}" class="btn-primary btn-sm mt-3 inline-block">Back to dashboard</a>
+      </div>
+    </div>
+  </div>
+
+{% else %}
+  <div
+    hx-get="{% url 'dashboard:org-delete-status' org_id %}"
+    hx-trigger="every 2s"
+    hx-swap="outerHTML"
+    class="card"
+  >
+    <div class="flex items-center justify-between mb-6">
+      <div class="flex items-center gap-2.5">
+        <svg class="animate-spin h-4 w-4 flex-shrink-0 text-accent" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+          <circle class="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+          <path class="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8z"></path>
+        </svg>
+        <span class="text-sm font-medium text-main">Deleting…</span>
+      </div>
+      <span class="font-mono text-xs text-muted">{{ step }}/{{ steps|length }}</span>
+    </div>
+
+    <!-- Progress bar -->
+    <div class="w-full rounded-full mb-6 overflow-hidden" style="height:4px;background:var(--surface-2)">
+      <div class="h-full rounded-full transition-all duration-500"
+           style="width:{% widthratio step steps|length 100 %}%;background:var(--accent)"></div>
+    </div>
+
+    <ol class="space-y-3">
+      {% for label in steps %}
+        {% with forloop.counter0 as i %}
+          <li class="flex items-center gap-3">
+            {% if i < step %}
+              <div class="w-4 h-4 rounded-full flex-shrink-0 flex items-center justify-center"
+                   style="background:var(--accent);border:2px solid var(--accent)">
+                <svg class="w-2.5 h-2.5 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="3">
+                  <path stroke-linecap="round" stroke-linejoin="round" d="M4.5 12.75l6 6 9-13.5" />
+                </svg>
+              </div>
+              <span class="text-sm text-muted line-through">{{ label }}</span>
+            {% elif i == step %}
+              <div class="w-4 h-4 rounded-full flex-shrink-0" style="background:var(--accent-10);border:2px solid var(--accent)"></div>
+              <span class="text-sm text-main font-medium">{{ label }}</span>
+            {% else %}
+              <div class="w-4 h-4 rounded-full flex-shrink-0" style="background:var(--surface-2);border:2px solid var(--border)"></div>
+              <span class="text-sm text-muted">{{ label }}</span>
+            {% endif %}
+          </li>
+        {% endwith %}
+      {% endfor %}
+    </ol>
+  </div>
+{% endif %}

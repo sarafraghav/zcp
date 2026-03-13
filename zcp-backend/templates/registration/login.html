@@ -1,0 +1,43 @@
+{% extends "base.html" %}
+{% block title %}Log in — ZCP{% endblock %}
+{% block content %}
+<div class="max-w-md mx-auto mt-16">
+  <div class="text-center mb-8">
+    <div class="w-10 h-10 rounded-xl mx-auto mb-4 flex items-center justify-center"
+         style="background:var(--accent-10);border:1px solid var(--accent-25)">
+      <span class="text-accent font-mono font-semibold">Z</span>
+    </div>
+    <h1 class="text-2xl font-semibold text-main">Welcome back</h1>
+    <p class="text-sm text-muted mt-1">Log in to your Zamp Control Plane account</p>
+  </div>
+
+  <div class="card">
+    <form method="post" class="space-y-5">
+      {% csrf_token %}
+      {% for field in form %}
+        <div>
+          <label class="block text-xs font-medium text-muted mb-1.5 uppercase tracking-wide">{{ field.label }}</label>
+          <input
+            type="{{ field.field.widget.input_type }}"
+            name="{{ field.html_name }}"
+            {% if field.value %}value="{{ field.value }}"{% endif %}
+            class="input-field{% if field.errors %} has-error{% endif %}"
+          >
+          {% if field.errors %}
+            <p class="text-xs mt-1.5" style="color:var(--e-tx)">{{ field.errors|join:" " }}</p>
+          {% endif %}
+        </div>
+      {% endfor %}
+      {% if form.non_field_errors %}
+        <div class="alert-error">{{ form.non_field_errors|join:" " }}</div>
+      {% endif %}
+      <button type="submit" class="btn-primary w-full mt-2">Log in</button>
+    </form>
+  </div>
+
+  <p class="text-sm text-muted text-center mt-6">
+    Don't have an account?
+    <a href="{% url 'signup' %}" class="text-accent hover:opacity-80 font-medium">Sign up</a>
+  </p>
+</div>
+{% endblock %}

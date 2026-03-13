@@ -1,0 +1,23 @@
+[project]
+name = "zcp-backend"
+version = "0.1.0"
+description = "Zamp Control Plane — Django backend"
+requires-python = ">=3.10"
+dependencies = [
+    "django>=5.2.12",
+    "djangorestframework>=3.16.1",
+    "python-decouple>=3.8",
+    "temporalio>=1.7.0",
+    "modal>=0.73.0",
+    "django-htmx>=1.21.0",
+    "pydantic>=2.12.5",
+    "httpx>=0.28",
+    "psycopg2-binary>=2.9",
+]
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[tool.hatch.build.targets.wheel]
+packages = ["zcp", "apps"]

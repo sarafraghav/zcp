@@ -1,0 +1,83 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="dark-tech">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>{% block title %}Zamp Control Plane{% endblock %}</title>
+  <!-- Apply saved theme before CSS renders to prevent flash -->
+  <script>(function(){var t=localStorage.getItem('zcp-theme');if(t)document.documentElement.setAttribute('data-theme',t);})();</script>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script>
+    tailwind.config = {
+      theme: {
+        extend: {
+          fontFamily: {
+            sans: ['Inter', 'ui-sans-serif', 'system-ui', 'sans-serif'],
+            mono: ['JetBrains Mono', 'ui-monospace', 'monospace'],
+          },
+        }
+      }
+    }
+  </script>
+  {% include "_theme.html" %}
+  <script src="https://unpkg.com/htmx.org@1.9.12"></script>
+</head>
+<body class="min-h-screen font-sans antialiased">
+  <nav class="border-b px-6 py-3" style="background:var(--surface);border-color:var(--border)">
+    <div class="max-w-5xl mx-auto flex items-center justify-between">
+      <a href="/" class="flex items-center gap-2.5 group">
+        <div class="w-7 h-7 rounded-md flex items-center justify-center flex-shrink-0"
+             style="background:var(--accent-10);border:1px solid var(--accent-25)">
+          <span class="text-accent text-xs font-mono font-medium">Z</span>
+        </div>
+        <span class="font-semibold text-sm text-main group-hover:text-accent transition-colors">ZCP</span>
+      </a>
+      <div class="flex items-center gap-0.5">
+        <a href="{% url 'docs:spec' %}" class="nav-link">Docs</a>
+        {% if user.is_authenticated %}
+          <a href="{% url 'dashboard:dashboard' %}" class="nav-link">Dashboard</a>
+          <form method="post" action="{% url 'logout' %}" class="inline">
+            {% csrf_token %}
+            <button type="submit" class="nav-link">Log out</button>
+          </form>
+        {% else %}
+          <a href="{% url 'login' %}" class="nav-link">Log in</a>
+          <a href="{% url 'signup' %}" class="nav-link-accent ml-1">Sign up</a>
+        {% endif %}
+        <!-- Theme switcher -->
+        <div class="flex items-center gap-1.5 ml-3 pl-3" style="border-left:1px solid var(--border)">
+          <button class="theme-dot" data-theme="dark-tech"   style="background:#10b981" title="Dark Tech"></button>
+          <button class="theme-dot" data-theme="light-clean" style="background:#4f46e5" title="Light Clean"></button>
+          <button class="theme-dot" data-theme="midnight"    style="background:#a78bfa" title="Midnight"></button>
+          <button class="theme-dot" data-theme="carbon"      style="background:#f97316" title="Carbon"></button>
+        </div>
+      </div>
+    </div>
+  </nav>
+  <main class="max-w-5xl mx-auto px-6 py-10">
+    {% block content %}{% endblock %}
+  </main>
+  <script>
+    (function(){
+      function updateDots(t){
+        document.querySelectorAll('.theme-dot').forEach(function(d){
+          d.classList.toggle('active', d.dataset.theme === t);
+        });
+      }
+      var current = document.documentElement.getAttribute('data-theme') || 'dark-tech';
+      updateDots(current);
+      document.querySelectorAll('.theme-dot').forEach(function(btn){
+        btn.addEventListener('click', function(){
+          var t = btn.dataset.theme;
+          document.documentElement.setAttribute('data-theme', t);
+          localStorage.setItem('zcp-theme', t);
+          updateDots(t);
+        });
+      });
+    })();
+  </script>
+</body>
+</html>

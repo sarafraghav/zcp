@@ -1,0 +1,125 @@
+from pydantic import BaseModel
+
+
+# --- Activity inputs/outputs ---
+
+class CreateOrganizationInput(BaseModel):
+    name: str
+    slug: str
+
+
+class CreateOrganizationOutput(BaseModel):
+    org_id: str
+
+
+class LinkUserToOrgInput(BaseModel):
+    user_id: str
+    org_id: str
+
+
+class ProvisionNeonDatabaseInput(BaseModel):
+    org_id: str
+    slug: str
+    workflow_id: str
+    service_id: str = "default"
+    project_id: str = ""
+
+
+class ProvisionNeonDatabaseOutput(BaseModel):
+    project_id: str
+    database_name: str
+    connection_string: str
+
+
+class ProvisionRedisInput(BaseModel):
+    org_id: str
+    slug: str
+    workflow_id: str
+    service_id: str = "default"
+    project_id: str = ""
+
+
+class ProvisionRedisOutput(BaseModel):
+    database_id: str
+    endpoint: str
+    port: int
+    password: str
+    rest_token: str
+
+
+# --- Project activities ---
+
+class CreateProjectInput(BaseModel):
+    org_id: str
+    name: str
+    manifest: dict
+
+
+class CreateProjectOutput(BaseModel):
+    project_id: str
+
+
+# --- Deploy workflow activities ---
+
+class CloneRepoInput(BaseModel):
+    repo_url: str
+    branch: str
+    commit: str = ""
+
+
+class CloneRepoOutput(BaseModel):
+    manifest: dict
+    source_path: str
+
+
+class InitDatabaseSchemaInput(BaseModel):
+    connection_string: str
+    sql: str
+
+
+class ModalDeployInput(BaseModel):
+    org_id: str
+    project_id: str
+    slug: str
+    app_name: str
+    compute_services: list
+    provisioned: dict
+    source_path: str
+    workflow_id: str
+
+
+class ModalDeployOutput(BaseModel):
+    service_urls: dict
+
+
+class CleanupSourceInput(BaseModel):
+    source_path: str
+
+
+# --- DeployWorkflow input/output ---
+
+class DeployWorkflowInput(BaseModel):
+    org_id: str
+    slug: str
+    manifest: dict
+    source_path: str
+
+
+class DeployWorkflowOutput(BaseModel):
+    project_id: str
+    app_name: str
+    service_urls: dict
+
+
+# --- SignupWorkflow input/output ---
+
+class SignupWorkflowInput(BaseModel):
+    user_id: str
+    org_name: str
+    slug: str
+
+
+class SignupWorkflowOutput(BaseModel):
+    org_id: str
+    app_name: str
+    service_urls: dict

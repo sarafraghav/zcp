@@ -1,0 +1,44 @@
+{% for key in api_keys %}
+  <div class="{% if not forloop.last %}pb-4 mb-4 border-b divider{% endif %}">
+    <div class="flex items-start justify-between mb-3">
+      <div>
+        <p class="text-sm font-semibold text-main">{{ key.name }}</p>
+        <p class="text-xs text-muted font-mono mt-0.5">Created {{ key.created_at|date:"Y-m-d H:i" }}</p>
+      </div>
+      <span class="badge ml-3 {% if key.is_active %}badge-success{% else %}badge-neutral{% endif %}">
+        {% if key.is_active %}active{% else %}inactive{% endif %}
+      </span>
+    </div>
+
+    <div class="mb-3">
+      <dt class="text-xs text-muted mb-1">Token</dt>
+      <dd class="flex items-center gap-2">
+        <code id="token-{{ key.id }}" class="font-mono text-xs text-main break-all select-all"
+              style="background:var(--surface-2);padding:0.375rem 0.625rem;border-radius:0.375rem;border:1px solid var(--border);display:block;width:100%">{{ key.token }}</code>
+        <button type="button"
+                onclick="navigator.clipboard.writeText(document.getElementById('token-{{ key.id }}').textContent.trim());this.textContent='Copied!';setTimeout(()=>this.textContent='Copy',1500)"
+                class="btn-sm flex-shrink-0"
+                style="background:var(--surface-2);border:1px solid var(--border);color:var(--text);border-radius:0.375rem;padding:0.25rem 0.625rem;font-size:0.75rem;cursor:pointer">
+          Copy
+        </button>
+      </dd>
+    </div>
+
+    {% if key.last_used_at %}
+      <p class="text-xs text-muted mb-3">Last used: {{ key.last_used_at|date:"Y-m-d H:i" }}</p>
+    {% endif %}
+
+    <form hx-post="{% url 'dashboard:apikey-regenerate' key.id %}"
+          hx-target="#apikey-container"
+          hx-swap="innerHTML"
+          onsubmit="return confirm('Regenerate this API key? The old token will stop working immediately.')">
+      {% csrf_token %}
+      <button type="submit" class="btn-sm"
+              style="background:var(--e-bg);border:1px solid var(--e-bd);color:var(--e-tx);border-radius:0.375rem;padding:0.25rem 0.625rem;font-size:0.75rem;cursor:pointer">
+        Regenerate
+      </button>
+    </form>
+  </div>
+{% empty %}
+  <p class="text-sm text-muted">No API keys.</p>
+{% endfor %}
