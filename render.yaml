@@ -1,0 +1,92 @@
+databases:
+  - name: zcp-db
+    plan: free
+    databaseName: zcp
+    user: zcp
+
+services:
+  # Django web service
+  - type: web
+    name: zcp-backend
+    runtime: python
+    plan: free
+    buildCommand: ./render-build.sh
+    startCommand: cd zcp-backend && uv run gunicorn zcp.wsgi:application --bind 0.0.0.0:$PORT --workers 2
+    envVars:
+      - key: DATABASE_URL
+        fromDatabase:
+          name: zcp-db
+          property: connectionString
+      - key: RENDER
+        value: "true"
+      - key: DEBUG
+        value: "false"
+      - key: PYTHON_VERSION
+        value: "3.12.3"
+      - key: SECRET_KEY
+        generateValue: true
+      - key: ALLOWED_HOSTS
+        sync: false
+      - key: CSRF_TRUSTED_ORIGINS
+        sync: false
+      - key: TEMPORAL_HOST
+        sync: false
+      - key: TEMPORAL_NAMESPACE
+        sync: false
+      - key: TEMPORAL_API_KEY
+        sync: false
+      - key: NEON_API_KEY
+        sync: false
+      - key: NEON_ORG_ID
+        sync: false
+      - key: UPSTASH_EMAIL
+        sync: false
+      - key: UPSTASH_API_KEY
+        sync: false
+      - key: SAMPLE_REPO_URL
+        sync: false
+      - key: SAMPLE_REPO_BRANCH
+        sync: false
+      - key: SAMPLE_REPO_COMMIT
+        sync: false
+
+  # Temporal worker (background service)
+  - type: worker
+    name: zcp-worker
+    runtime: python
+    plan: free
+    buildCommand: ./render-build.sh
+    startCommand: cd zcp-backend && uv run python -m apps.workflows.worker
+    envVars:
+      - key: DATABASE_URL
+        fromDatabase:
+          name: zcp-db
+          property: connectionString
+      - key: RENDER
+        value: "true"
+      - key: DEBUG
+        value: "false"
+      - key: PYTHON_VERSION
+        value: "3.12.3"
+      - key: SECRET_KEY
+        generateValue: true
+      - key: TEMPORAL_HOST
+        sync: false
+      - key: TEMPORAL_NAMESPACE
+        sync: false
+      - key: TEMPORAL_API_KEY
+        sync: false
+      - key: NEON_API_KEY
+        sync: false
+      - key: NEON_ORG_ID
+        sync: false
+      - key: UPSTASH_EMAIL
+        sync: false
+      - key: UPSTASH_API_KEY
+        sync: false
+      - key: SAMPLE_REPO_URL
+        sync: false
+      - key: SAMPLE_REPO_BRANCH
+        sync: false
+      - key: SAMPLE_REPO_COMMIT
+        sync: false
