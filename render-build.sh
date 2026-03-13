@@ -3,7 +3,7 @@ set -o errexit
 
 # Install dependencies
 pip install uv
-uv sync --all-packages --python-preference only-system
+uv sync --all-packages
 
 # Django build steps (run from zcp-backend/)
 cd zcp-backend
