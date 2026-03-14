@@ -22,6 +22,7 @@ dashboard_urlpatterns = [
     path("redis/<uuid:redis_id>/command/", views.RedisCommandView.as_view(), name="redis-command"),
     path("apps/", views.AppsListView.as_view(), name="apps-list"),
     path("projects/create/", views.CreateProjectView.as_view(), name="project-create"),
+    path("projects/<uuid:project_id>/redeploy/", views.RedeployProjectView.as_view(), name="project-redeploy"),
     path("projects/status/<str:workflow_id>/", views.ProjectDeployStatusView.as_view(), name="project-status"),
     path("orgs/create/", views.CreateOrgView.as_view(), name="org-create"),
     path("orgs/status/<str:workflow_id>/", views.OrgWorkflowStatusView.as_view(), name="org-status"),

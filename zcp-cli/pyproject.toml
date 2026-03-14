@@ -1,9 +1,30 @@
 [project]
 name = "zcp-cli"
-version = "0.1.0"
-description = "ZCP CLI — deploy apps via the ZCP server"
+version = "0.1.1"
+description = "ZCP CLI — deploy apps to the Zamp Control Plane"
 requires-python = ">=3.10"
+readme = "README.md"
+license = "MIT"
+authors = [{ name = "Raghav Saraf" }]
+keywords = ["deploy", "paas", "cli", "zcp", "zamp"]
+classifiers = [
+    "Development Status :: 3 - Alpha",
+    "Environment :: Console",
+    "Intended Audience :: Developers",
+    "License :: OSI Approved :: MIT License",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
+    "Topic :: Software Development :: Build Tools",
+]
 dependencies = ["httpx>=0.28"]
+
+[project.urls]
+Homepage = "https://github.com/sarafraghav/zcp"
+Repository = "https://github.com/sarafraghav/zcp"
+Issues = "https://github.com/sarafraghav/zcp/issues"
 
 [project.scripts]
 zcp = "zcp_cli.cli:main"

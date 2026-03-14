@@ -4,15 +4,15 @@
 <div class="max-w-3xl mx-auto mt-6">
 
   <!-- Stepper -->
-  <div class="flex justify-center mb-12 animate-in">
+  <div class="flex justify-center mb-10 animate-in">
     <div class="step-indicator">
-      <div class="step-dot completed"></div>
-      <div class="step-line completed"></div>
-      <div class="step-dot active"></div>
-      <div class="step-line"></div>
-      <div class="step-dot"></div>
-      <div class="step-line"></div>
-      <div class="step-dot"></div>
+      <div class="step-dot completed" style="width:10px;height:10px"></div>
+      <div class="step-line completed" style="width:40px"></div>
+      <div class="step-dot active" style="width:10px;height:10px"></div>
+      <div class="step-line" style="width:40px"></div>
+      <div class="step-dot" style="width:10px;height:10px"></div>
+      <div class="step-line" style="width:40px"></div>
+      <div class="step-dot" style="width:10px;height:10px"></div>
     </div>
   </div>
 
@@ -58,65 +58,70 @@
   </div>
 
   <!-- Service types grid -->
-  <div class="grid grid-cols-2 gap-4 mb-8 animate-in-delayed">
-    <div class="card">
-      <div class="flex items-center gap-2.5 mb-3">
-        <div class="w-8 h-8 rounded-lg flex items-center justify-center" style="background:var(--accent-10)">
-          <svg class="w-4 h-4 text-accent" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.5">
+  <div class="grid grid-cols-2 lg:grid-cols-3 gap-3 mb-8 animate-in-delayed">
+    <div class="card" style="padding:1rem">
+      <div class="flex items-center gap-2 mb-2">
+        <div class="w-6 h-6 rounded flex items-center justify-center" style="background:var(--accent-10)">
+          <svg class="w-3 h-3 text-accent" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.5">
             <path stroke-linecap="round" stroke-linejoin="round" d="M20.25 6.375c0 2.278-3.694 4.125-8.25 4.125S3.75 8.653 3.75 6.375m16.5 0c0-2.278-3.694-4.125-8.25-4.125S3.75 4.097 3.75 6.375m16.5 0v11.25c0 2.278-3.694 4.125-8.25 4.125s-8.25-1.847-8.25-4.125V6.375" />
           </svg>
         </div>
-        <div>
-          <p class="text-sm font-semibold text-main">postgres</p>
-          <span class="badge badge-neutral" style="font-size:0.6rem">infra</span>
-        </div>
+        <span class="text-sm font-semibold text-main">postgres</span>
+        <span class="badge badge-neutral ml-auto" style="font-size:0.55rem">infra</span>
       </div>
-      <p class="text-xs text-muted leading-relaxed">Serverless Postgres database. Reference its <code class="code-chip">connectionString</code> in compute services via <code class="code-chip">fromService</code>.</p>
+      <p class="text-xs text-muted leading-relaxed">Serverless Postgres database.</p>
     </div>
 
-    <div class="card">
-      <div class="flex items-center gap-2.5 mb-3">
-        <div class="w-8 h-8 rounded-lg flex items-center justify-center" style="background:var(--accent-10)">
-          <svg class="w-4 h-4 text-accent" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.5">
+    <div class="card" style="padding:1rem">
+      <div class="flex items-center gap-2 mb-2">
+        <div class="w-6 h-6 rounded flex items-center justify-center" style="background:var(--accent-10)">
+          <svg class="w-3 h-3 text-accent" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.5">
             <path stroke-linecap="round" stroke-linejoin="round" d="M3.75 13.5l10.5-11.25L12 10.5h8.25L9.75 21.75 12 13.5H3.75z" />
           </svg>
         </div>
-        <div>
-          <p class="text-sm font-semibold text-main">redis</p>
-          <span class="badge badge-neutral" style="font-size:0.6rem">infra</span>
-        </div>
+        <span class="text-sm font-semibold text-main">redis</span>
+        <span class="badge badge-neutral ml-auto" style="font-size:0.55rem">infra</span>
       </div>
-      <p class="text-xs text-muted leading-relaxed">In-memory cache. Access via <code class="code-chip">connectionString</code>, <code class="code-chip">host</code>, <code class="code-chip">authToken</code>.</p>
+      <p class="text-xs text-muted leading-relaxed">In-memory cache.</p>
     </div>
 
-    <div class="card">
-      <div class="flex items-center gap-2.5 mb-3">
-        <div class="w-8 h-8 rounded-lg flex items-center justify-center" style="background:var(--accent-10)">
-          <svg class="w-4 h-4 text-accent" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.5">
-            <path stroke-linecap="round" stroke-linejoin="round" d="M12 21a9.004 9.004 0 008.716-6.747M12 21a9.004 9.004 0 01-8.716-6.747M12 21c2.485 0 4.5-4.03 4.5-9S14.485 3 12 3m0 18c-2.485 0-4.5-4.03-4.5-9S9.515 3 12 3" />
+    <div class="card" style="padding:1rem">
+      <div class="flex items-center gap-2 mb-2">
+        <div class="w-6 h-6 rounded flex items-center justify-center" style="background:var(--accent-10)">
+          <svg class="w-3 h-3 text-accent" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.5">
+            <path stroke-linecap="round" stroke-linejoin="round" d="M12 21a9.004 9.004 0 008.716-6.747M12 21a9.004 9.004 0 01-8.716-6.747M12 21c2.485 0 4.5-4.03 4.5-9S14.485 3 12 3" />
           </svg>
         </div>
-        <div>
-          <p class="text-sm font-semibold text-main">web</p>
-          <span class="badge badge-neutral" style="font-size:0.6rem">compute</span>
-        </div>
+        <span class="text-sm font-semibold text-main">web</span>
+        <span class="badge badge-neutral ml-auto" style="font-size:0.55rem">compute</span>
       </div>
-      <p class="text-xs text-muted leading-relaxed">Public HTTP service. Specify <code class="code-chip">start</code>, <code class="code-chip">port</code>, <code class="code-chip">scaling</code>, and <code class="code-chip">env</code>.</p>
+      <p class="text-xs text-muted leading-relaxed">Public HTTP endpoint.</p>
     </div>
 
-    <div class="card">
-      <div class="flex items-center gap-2.5 mb-3">
-        <div class="w-8 h-8 rounded-lg flex items-center justify-center" style="background:var(--accent-10)">
-          <svg class="w-4 h-4 text-accent" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.5">
+    <div class="card" style="padding:1rem">
+      <div class="flex items-center gap-2 mb-2">
+        <div class="w-6 h-6 rounded flex items-center justify-center" style="background:var(--accent-10)">
+          <svg class="w-3 h-3 text-accent" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.5">
             <path stroke-linecap="round" stroke-linejoin="round" d="M8.25 3v1.5M4.5 8.25H3m18 0h-1.5M4.5 12H3m18 0h-1.5m-15 3.75H3m18 0h-1.5M8.25 19.5V21M12 3v1.5m0 15V21m3.75-18v1.5m0 15V21m-9-1.5h10.5a2.25 2.25 0 002.25-2.25V6.75a2.25 2.25 0 00-2.25-2.25H6.75A2.25 2.25 0 004.5 6.75v10.5a2.25 2.25 0 002.25 2.25z" />
           </svg>
         </div>
-        <div>
-          <p class="text-sm font-semibold text-main">worker</p>
-          <span class="badge badge-neutral" style="font-size:0.6rem">compute</span>
-        </div>
+        <span class="text-sm font-semibold text-main">worker</span>
+        <span class="badge badge-neutral ml-auto" style="font-size:0.55rem">compute</span>
       </div>
-      <p class="text-xs text-muted leading-relaxed">Background process with no HTTP endpoint. Same config as <code class="code-chip">web</code> minus <code class="code-chip">port</code>.</p>
+      <p class="text-xs text-muted leading-relaxed">Background process, no HTTP.</p>
+    </div>
+
+    <div class="card" style="padding:1rem">
+      <div class="flex items-center gap-2 mb-2">
+        <div class="w-6 h-6 rounded flex items-center justify-center" style="background:var(--accent-10)">
+          <svg class="w-3 h-3 text-accent" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.5">
+            <path stroke-linecap="round" stroke-linejoin="round" d="M21 7.5l-2.25-1.313M21 7.5v2.25m0-2.25l-2.25 1.313M3 7.5l2.25-1.313M3 7.5l2.25 1.313M3 7.5v2.25m9 3l2.25-1.313M12 12.75l-2.25-1.313M12 12.75V15m0 6.75l2.25-1.313M12 21.75V19.5m0 2.25l-2.25-1.313m0-16.875L12 2.25l2.25 1.313M21 14.25v2.25l-2.25 1.313m-13.5 0L3 16.5v-2.25" />
+          </svg>
+        </div>
+        <span class="text-sm font-semibold text-main">container</span>
+        <span class="badge badge-neutral ml-auto" style="font-size:0.55rem">compute</span>
+      </div>
+      <p class="text-xs text-muted leading-relaxed">Pre-built Docker image.</p>
     </div>
   </div>
 
@@ -138,12 +143,17 @@
       </svg>
       Back
     </a>
-    <a href="{% url 'onboarding:apikey' %}" class="btn-solid btn-lg">
-      Next: Your API key
-      <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
-        <path stroke-linecap="round" stroke-linejoin="round" d="M13.5 4.5L21 12m0 0l-7.5 7.5M21 12H3" />
-      </svg>
-    </a>
+    <div class="flex flex-col items-end gap-2">
+      <a href="{% url 'onboarding:apikey' %}" class="btn-solid btn-lg">
+        Next: Your API key
+        <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+          <path stroke-linecap="round" stroke-linejoin="round" d="M13.5 4.5L21 12m0 0l-7.5 7.5M21 12H3" />
+        </svg>
+      </a>
+      <a href="{% url 'onboarding:deploy' %}" class="text-xs text-muted hover:text-accent transition-colors">
+        Skip to deploy
+      </a>
+    </div>
   </div>
 
 </div>

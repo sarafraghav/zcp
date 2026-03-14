@@ -14,6 +14,7 @@ class Project(models.Model):
 
     class Meta:
         ordering = ["-created_at"]
+        unique_together = [("organization", "name")]
 
     def __str__(self):
         return f"{self.organization.slug}/{self.name}"

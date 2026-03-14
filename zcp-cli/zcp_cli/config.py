@@ -22,5 +22,8 @@ def get_token() -> str | None:
     return os.environ.get("ZCP_API_TOKEN") or load_config().get("token")
 
 
+DEFAULT_API_URL = "https://zcp-backend.onrender.com"
+
+
 def get_api_url() -> str:
-    return os.environ.get("ZCP_API_URL") or load_config().get("api_url", "http://localhost:8000")
+    return os.environ.get("ZCP_API_URL") or load_config().get("api_url", DEFAULT_API_URL)

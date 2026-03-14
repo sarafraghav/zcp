@@ -40,6 +40,16 @@ async def create_project_activity(params: CreateProjectInput) -> CreateProjectOu
 
     org = await Organization.objects.aget(id=params.org_id)
 
+    # Redeploy: reuse existing project if it exists
+    if params.redeploy:
+        try:
+            project = await Project.objects.aget(organization=org, name=params.name)
+            project.manifest = params.manifest
+            await project.asave(update_fields=["manifest"])
+            return CreateProjectOutput(project_id=str(project.id))
+        except Project.DoesNotExist:
+            pass  # Fall through to create new
+
     # Auto-deduplicate project name within the org
     base_name = params.name
     name = base_name
@@ -254,10 +264,10 @@ class DeployWorkflow:
         compute_services = [s for s in all_services if s.get("type") not in _INFRA_TYPES]
         wf_id = workflow.info().workflow_id
 
-        # 1. Create project record
+        # 1. Create project record (redeploy reuses existing)
         project_result = await workflow.execute_activity(
             create_project_activity,
-            CreateProjectInput(org_id=params.org_id, name=app_name, manifest=manifest),
+            CreateProjectInput(org_id=params.org_id, name=app_name, manifest=manifest, redeploy=params.redeploy),
             start_to_close_timeout=timedelta(minutes=1),
             retry_policy=retry,
         )
@@ -398,6 +408,7 @@ class ProjectDeployWorkflow:
         )
 
         # 2. Deploy via child workflow
+        redeploy = bool(params.project_id)
         deploy_result: DeployWorkflowOutput = await workflow.execute_child_workflow(
             "DeployWorkflow",
             DeployWorkflowInput(
@@ -405,6 +416,7 @@ class ProjectDeployWorkflow:
                 slug=params.slug,
                 manifest=clone_result.manifest,
                 source_path=clone_result.source_path,
+                redeploy=redeploy,
             ),
             id=f"deploy-proj-{params.slug}-{workflow.info().workflow_id}",
             result_type=DeployWorkflowOutput,

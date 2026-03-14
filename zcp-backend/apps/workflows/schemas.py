@@ -53,6 +53,7 @@ class CreateProjectInput(BaseModel):
     org_id: str
     name: str
     manifest: dict
+    redeploy: bool = False
 
 
 class CreateProjectOutput(BaseModel):
@@ -111,6 +112,7 @@ class CleanupSourceInput(BaseModel):
 class ProjectDeployInput(BaseModel):
     org_id: str
     slug: str
+    project_id: str = ""
 
 
 # --- DeployWorkflow input/output ---
@@ -120,6 +122,7 @@ class DeployWorkflowInput(BaseModel):
     slug: str
     manifest: dict
     source_path: str
+    redeploy: bool = False
 
 
 class DeployWorkflowOutput(BaseModel):

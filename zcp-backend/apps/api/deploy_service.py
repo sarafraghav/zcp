@@ -28,6 +28,7 @@ async def start_deploy_workflow(
             slug=slug,
             manifest=manifest,
             source_path=source_path,
+            redeploy=True,
         ),
         id=workflow_id,
         task_queue=TASK_QUEUE,

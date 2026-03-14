@@ -87,7 +87,7 @@ def main():
 
     lp = subparsers.add_parser("login", help="Save API token")
     lp.add_argument("--token", required=True, help="API key from ZCP dashboard")
-    lp.add_argument("--api-url", help="ZCP server URL (default: http://localhost:8000)")
+    lp.add_argument("--api-url", help="ZCP server URL (default: https://zcp-backend.onrender.com)")
 
     dp = subparsers.add_parser("deploy", help="Deploy services from zcp.json")
     dp.add_argument("--file", metavar="PATH", help="Path to zcp.json")
