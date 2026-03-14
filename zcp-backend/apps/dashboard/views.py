@@ -102,13 +102,23 @@ class OnboardingDeployView(LoginRequiredMixin, View):
         org_name = request.session.get("pending_org_name")
         slug = request.session.get("pending_slug")
         if not org_name or not slug:
-            return redirect("onboarding:welcome")
+            # Fallback: generate from the user's email if session keys were lost
+            email = request.user.email
+            org_name = org_name or f"{email.split('@')[0]}'s Org"
+            slug = slug or email.split("@")[0].lower().replace(".", "-").replace("+", "-")[:30]
+            request.session["pending_org_name"] = org_name
+            request.session["pending_slug"] = slug
 
-        result = asyncio.run(start_signup_workflow(
-            user_id=str(request.user.id),
-            org_name=org_name,
-            slug=slug,
-        ))
+        try:
+            result = asyncio.run(start_signup_workflow(
+                user_id=str(request.user.id),
+                org_name=org_name,
+                slug=slug,
+            ))
+        except Exception as exc:
+            return render(request, "onboarding/deploy.html", {
+                "error": f"Failed to start deploy: {exc}",
+            })
         return render(request, "onboarding/status.html", {
             "workflow_id": result.workflow_id,
         })

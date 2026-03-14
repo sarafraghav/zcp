@@ -85,6 +85,10 @@
 }</pre>
         </details>
 
+        {% if error %}
+        <div class="alert-error mb-4">{{ error }}</div>
+        {% endif %}
+
         <!-- Deploy button -->
         <form method="post">
           {% csrf_token %}
