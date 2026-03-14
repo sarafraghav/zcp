@@ -21,7 +21,9 @@ with workflow.unsafe.imports_passed_through():
 @activity.defn
 async def create_organization_activity(params: CreateOrganizationInput) -> CreateOrganizationOutput:
     from apps.organizations.models import Organization
-    org = await Organization.objects.acreate(name=params.name, slug=params.slug)
+    org, _created = await Organization.objects.aget_or_create(
+        slug=params.slug, defaults={"name": params.name},
+    )
     return CreateOrganizationOutput(org_id=str(org.id))
 
 
