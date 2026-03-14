@@ -25,6 +25,7 @@ from apps.workflows.deploy import (
     create_project_activity,
     clone_repo_activity,
     modal_deploy_activity,
+    fly_deploy_activity,
     cleanup_source_activity,
 )
 
@@ -45,6 +46,7 @@ async def main():
             create_project_activity,
             clone_repo_activity,
             modal_deploy_activity,
+            fly_deploy_activity,
             cleanup_source_activity,
         ],
     )

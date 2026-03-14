@@ -1,6 +1,6 @@
 """
 DeployWorkflow — Temporal workflow that provisions infra, resolves env refs,
-runs Modal deploy, and creates/updates DeployedApp records.
+deploys compute to Modal and containers to Fly.io, and creates/updates DeployedApp records.
 
 Used by both:
   - SignupWorkflow (as a child workflow, after cloning the sample repo)
@@ -15,6 +15,7 @@ from apps.workflows.schemas import (
     CreateProjectInput, CreateProjectOutput,
     CloneRepoInput, CloneRepoOutput,
     ModalDeployInput, ModalDeployOutput,
+    FlyDeployInput, FlyDeployOutput,
     CleanupSourceInput,
     ProjectDeployInput,
     DeployWorkflowInput, DeployWorkflowOutput,
@@ -38,9 +39,18 @@ async def create_project_activity(params: CreateProjectInput) -> CreateProjectOu
     from apps.organizations.models import Organization
 
     org = await Organization.objects.aget(id=params.org_id)
+
+    # Auto-deduplicate project name within the org
+    base_name = params.name
+    name = base_name
+    counter = 1
+    while await Project.objects.filter(organization=org, name=name).aexists():
+        counter += 1
+        name = f"{base_name}-{counter}"
+
     project = await Project.objects.acreate(
         organization=org,
-        name=params.name,
+        name=name,
         manifest=params.manifest,
     )
     return CreateProjectOutput(project_id=str(project.id))
@@ -92,8 +102,6 @@ async def modal_deploy_activity(params: ModalDeployInput) -> ModalDeployOutput:
     """Resolve fromService env refs, detect runtimes, run Modal deploy."""
     from pathlib import Path
     from apps.workflows.deploy_engine import detect_runtime
-    from apps.deployments.models import DeployedApp
-    from apps.organizations.models import Organization
 
     source_path = Path(params.source_path)
 
@@ -110,26 +118,51 @@ async def modal_deploy_activity(params: ModalDeployInput) -> ModalDeployOutput:
     # Two-pass Modal deploy
     all_urls = _two_pass_deploy(params.app_name, params.slug, patched, source_path)
 
-    # Create/update DeployedApp record
-    org = await Organization.objects.aget(id=params.org_id)
-    project_kwargs = {}
-    if params.project_id:
-        from apps.projects.models import Project
-        project_kwargs["zcp_project"] = await Project.objects.aget(id=params.project_id)
-
-    await DeployedApp.objects.aupdate_or_create(
-        organization=org,
-        app_name=f"{params.app_name}-{params.slug}",
-        defaults={
-            "service_urls": all_urls,
-            "status": "ready",
-            "temporal_workflow_id": params.workflow_id,
-            "metadata": {"deployed_via": "workflow"},
-            **project_kwargs,
-        },
-    )
-
     return ModalDeployOutput(service_urls=all_urls)
+
+
+@activity.defn
+async def fly_deploy_activity(params: FlyDeployInput) -> FlyDeployOutput:
+    """Deploy container services to Fly.io via the Machines API."""
+    from pathlib import Path
+    from django.conf import settings
+    from apps.workflows.fly_engine import deploy_container
+
+    source_path = Path(params.source_path)
+    api_key = settings.FLY_API_KEY
+    if not api_key:
+        raise RuntimeError("FLY_API_KEY not configured — required for container services")
+
+    all_urls = {}
+    for svc in params.container_services:
+        svc = dict(svc)
+        # Resolve fromService env references
+        svc["env"] = _resolve_env(svc.get("env", []), params.provisioned)
+        env_vars = {e["name"]: e["value"] for e in svc["env"] if "value" in e}
+
+        # Read configFiles content from the source directory
+        config_files_content = {}
+        for container_path, local_path in svc.get("configFiles", {}).items():
+            file_path = source_path / local_path
+            if not file_path.exists():
+                raise RuntimeError(
+                    f"configFile '{local_path}' not found at {file_path} "
+                    f"for container service '{svc['id']}'"
+                )
+            config_files_content[container_path] = file_path.read_text()
+
+        url = deploy_container(
+            api_key=api_key,
+            svc=svc,
+            env_vars=env_vars,
+            config_files_content=config_files_content,
+            org_slug=params.slug,
+            app_name=params.app_name,
+        )
+        if url:
+            all_urls[svc["id"]] = url
+
+    return FlyDeployOutput(service_urls=all_urls)
 
 
 @activity.defn
@@ -144,6 +177,31 @@ async def cleanup_source_activity(params: CleanupSourceInput) -> None:
 # ---------------------------------------------------------------------------
 # Helpers (pure functions, safe for activity context)
 # ---------------------------------------------------------------------------
+
+async def _get_org(org_id):
+    from apps.organizations.models import Organization
+    return await Organization.objects.aget(id=org_id)
+
+
+async def _get_project(project_id):
+    from apps.projects.models import Project
+    return await Project.objects.aget(id=project_id)
+
+
+async def _upsert_deployed_app(org, app_name, urls, workflow_id, extra_kwargs):
+    from apps.deployments.models import DeployedApp
+    await DeployedApp.objects.aupdate_or_create(
+        organization=org,
+        app_name=app_name,
+        defaults={
+            "service_urls": urls,
+            "status": "ready",
+            "temporal_workflow_id": workflow_id,
+            "metadata": {"deployed_via": "workflow"},
+            **extra_kwargs,
+        },
+    )
+
 
 def _resolve_env(raw_env: list, provisioned: dict) -> list:
     resolved = []
@@ -206,14 +264,18 @@ class DeployWorkflow:
 
         # 2. Provision infra in parallel
         # Use string-based dispatch for activities defined in signup.py
+        # Prefix service_id with project ID so each project gets its own
+        # Neon/Redis records (unique_together = org + service_id)
+        proj_prefix = project_result.project_id[:8]
         infra_tasks = []  # list of (svc_type, svc_dict, coroutine)
         for svc in infra_services:
+            scoped_service_id = f"{proj_prefix}-{svc['id']}"
             if svc["type"] == "postgres":
                 infra_tasks.append(("postgres", svc, workflow.execute_activity(
                     "provision_neon_database_activity",
                     ProvisionNeonDatabaseInput(
                         org_id=params.org_id, slug=params.slug,
-                        workflow_id=wf_id, service_id=svc["id"],
+                        workflow_id=wf_id, service_id=scoped_service_id,
                         project_id=project_result.project_id,
                     ),
                     result_type=ProvisionNeonDatabaseOutput,
@@ -225,7 +287,7 @@ class DeployWorkflow:
                     "provision_upstash_redis_activity",
                     ProvisionRedisInput(
                         org_id=params.org_id, slug=params.slug,
-                        workflow_id=wf_id, service_id=svc["id"],
+                        workflow_id=wf_id, service_id=scoped_service_id,
                         project_id=project_result.project_id,
                     ),
                     result_type=ProvisionRedisOutput,
@@ -252,27 +314,66 @@ class DeployWorkflow:
                         "restToken": result.rest_token,
                     }
 
-        # 3. Modal deploy
-        deploy_result = await workflow.execute_activity(
-            modal_deploy_activity,
-            ModalDeployInput(
-                org_id=params.org_id,
-                project_id=project_result.project_id,
-                slug=params.slug,
-                app_name=app_name,
-                compute_services=compute_services,
-                provisioned=provisioned,
-                source_path=params.source_path,
-                workflow_id=wf_id,
-            ),
-            start_to_close_timeout=timedelta(minutes=15),
-            retry_policy=RetryPolicy(maximum_attempts=2),
+        # 3. Deploy compute: Modal for web/worker, Fly.io for container
+        modal_services = [s for s in compute_services if s.get("type") != "container"]
+        container_services = [s for s in compute_services if s.get("type") == "container"]
+
+        deploy_tasks = []
+
+        if modal_services:
+            deploy_tasks.append(workflow.execute_activity(
+                modal_deploy_activity,
+                ModalDeployInput(
+                    org_id=params.org_id,
+                    project_id=project_result.project_id,
+                    slug=params.slug,
+                    app_name=app_name,
+                    compute_services=modal_services,
+                    provisioned=provisioned,
+                    source_path=params.source_path,
+                    workflow_id=wf_id,
+                ),
+                start_to_close_timeout=timedelta(minutes=15),
+                retry_policy=RetryPolicy(maximum_attempts=2),
+            ))
+
+        if container_services:
+            deploy_tasks.append(workflow.execute_activity(
+                fly_deploy_activity,
+                FlyDeployInput(
+                    org_id=params.org_id,
+                    project_id=project_result.project_id,
+                    slug=params.slug,
+                    app_name=app_name,
+                    container_services=container_services,
+                    provisioned=provisioned,
+                    source_path=params.source_path,
+                ),
+                start_to_close_timeout=timedelta(minutes=5),
+                retry_policy=RetryPolicy(maximum_attempts=2),
+            ))
+
+        # Run Modal + Fly deploys in parallel
+        all_urls = {}
+        if deploy_tasks:
+            results = await asyncio.gather(*deploy_tasks)
+            for result in results:
+                all_urls.update(result.service_urls)
+
+        # Create/update DeployedApp record (moved here from modal_deploy_activity
+        # so it captures URLs from both Modal and Fly.io)
+        org = await _get_org(params.org_id)
+        project_kwargs = {}
+        if project_result.project_id:
+            project_kwargs["zcp_project"] = await _get_project(project_result.project_id)
+        await _upsert_deployed_app(
+            org, f"{app_name}-{params.slug}", all_urls, wf_id, project_kwargs,
         )
 
         return DeployWorkflowOutput(
             project_id=project_result.project_id,
             app_name=f"{app_name}-{params.slug}",
-            service_urls=deploy_result.service_urls,
+            service_urls=all_urls,
         )
 
 

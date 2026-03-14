@@ -178,6 +178,14 @@ Always uses `base_path.resolve()` for absolute paths so Modal can find files reg
 | `web` (default) | Public, via port | `@modal.web_server(port)` | APIs, frontends |
 | `worker` | None | `@app.function` only | Temporal workers, queues, background jobs |
 
+**Container services (`type: "container"`)** are deployed to **Fly.io** (not Modal) via the Machines API.
+See `apps/workflows/fly_engine.py`. Fly.io runs Docker images natively — no Python requirement, no Dockerfile generation.
+
+| Container variant | HTTP | Fly.io behavior | Use case |
+|-------------------|------|-----------------|----------|
+| `container` (with port) | Public HTTPS via `*.fly.dev` | Fly Machine + shared IPv4 | Pre-built images needing HTTP (e.g. Kratos) |
+| `container` (no port) | None | Fly Machine (no services) | Pre-built images as background workers |
+
 **Two-pass deploy** (used when any service has `runtime: "nextjs"`):
 1. Pass 1: non-Next.js web services only → capture API URL
 2. Pass 2: all services with `NEXT_PUBLIC_API_URL` injected
@@ -243,7 +251,7 @@ All resources — databases, caches, compute — are entries in the `services` a
     // Compute: web service (public HTTP endpoint)
     {
       "id": "api",
-      "type": "web",                    // "web" | "worker" (default: "web")
+      "type": "web",                    // "web" | "worker" | "container" (default: "web")
       "runtime": "python",             // optional — auto-detected if omitted
       "basePath": "backend",           // directory relative to zcp.json location
       "start": "gunicorn app:app --bind 0.0.0.0:5001 --workers 2 --chdir /app",
@@ -264,6 +272,23 @@ All resources — databases, caches, compute — are entries in the `services` a
       "basePath": ".",
       "start": "python -m apps.workflows.worker",
       "scaling": { "min": 1, "max": 1 }
+    },
+
+    // Container: pre-built image from registry (no source code needed)
+    {
+      "id": "kratos",
+      "type": "container",
+      "image": "oryd/kratos:v1.3.1",        // registry image reference
+      "command": "serve --config /etc/config/kratos/kratos.yml",  // Docker CMD (appended to image ENTRYPOINT)
+      "port": 4433,                          // omit for worker-style containers
+      "configFiles": {                       // baked into image at build time (optional)
+        "/etc/config/kratos/kratos.yml": "kratos/kratos.yml"  // container path → local path
+      },
+      "scaling": { "min": 1, "max": 1 },
+      "env": [
+        { "name": "DSN", "fromService": { "id": "maindb", "value": "connectionString" } },
+        { "name": "LOG_LEVEL", "value": "info" }
+      ]
     }
   ]
 }
@@ -356,6 +381,7 @@ UPSTASH_API_KEY=<key from Upstash console → Account → API keys>
 SAMPLE_REPO_URL=https://github.com/sarafraghav/test_tictac.git
 SAMPLE_REPO_BRANCH=main
 SAMPLE_REPO_COMMIT=080d9fa6f8a2bb4cc4cab20da4358e9a00505edf
+FLY_API_KEY=<Fly.io API token for container service deployments>
 ```
 
 ---

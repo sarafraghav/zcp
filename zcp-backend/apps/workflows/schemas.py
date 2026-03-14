@@ -88,6 +88,20 @@ class ModalDeployOutput(BaseModel):
     service_urls: dict
 
 
+class FlyDeployInput(BaseModel):
+    org_id: str
+    project_id: str
+    slug: str
+    app_name: str
+    container_services: list
+    provisioned: dict
+    source_path: str  # needed to read configFiles content
+
+
+class FlyDeployOutput(BaseModel):
+    service_urls: dict
+
+
 class CleanupSourceInput(BaseModel):
     source_path: str
 

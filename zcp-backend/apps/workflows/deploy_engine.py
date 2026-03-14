@@ -3,9 +3,11 @@ ZCP Deploy Engine — generates Modal Python code that bakes source into images
 via add_local_dir. No Modal Volumes required.
 
 Source files are resolved relative to app_root (the directory containing zcp.json).
-Service types:
+Service types handled here (Modal):
   web    — public HTTP endpoint via @modal.web_server(port)
   worker — private background process via @app.function only (no HTTP)
+
+Container services are deployed to Fly.io via fly_engine.py, not here.
 """
 import json
 import os

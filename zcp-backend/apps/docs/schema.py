@@ -104,8 +104,26 @@ class WorkerService(BaseModel):
     env: list[EnvVar] = Field(default_factory=list, description="Environment variables.")
 
 
+class ContainerService(BaseModel):
+    """A service deployed from a pre-built container image (e.g. Docker Hub, GHCR)."""
+    id: str = Field(description="Unique identifier.")
+    type: Literal["container"]
+    image: str = Field(description="Registry image reference (e.g. `oryd/kratos:v1.3.1`).")
+    command: str | None = Field(default=None, description=(
+        "Override the image's default CMD/ENTRYPOINT. If omitted, the image's defaults are used. "
+        "E.g. `kratos serve --config /etc/config/kratos/kratos.yml`."
+    ))
+    port: int | None = Field(default=None, description="If set, expose as a public HTTP endpoint. If omitted, run as a background worker.")
+    configFiles: dict[str, str] = Field(
+        default_factory=dict,
+        description="Map of container destination path to local file path (relative to `zcp.json`). Files are baked into the image at build time.",
+    )
+    scaling: ScalingConfig = Field(default_factory=ScalingConfig, description="Autoscaling configuration.")
+    env: list[EnvVar] = Field(default_factory=list, description="Environment variables.")
+
+
 Service = Annotated[
-    Union[PostgresService, RedisService, WebService, WorkerService],
+    Union[PostgresService, RedisService, WebService, WorkerService, ContainerService],
     Field(discriminator="type"),
 ]
 

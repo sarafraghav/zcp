@@ -103,6 +103,8 @@ NEON_ORG_ID = config("NEON_ORG_ID", default="")
 UPSTASH_EMAIL = config("UPSTASH_EMAIL", default="")
 UPSTASH_API_KEY = config("UPSTASH_API_KEY", default="")
 
+FLY_API_KEY = config("FLY_API_KEY", default="")
+
 DEPLOY_SAMPLE_DIR = BASE_DIR / "Sample Deployment"
 
 # Pinned sample app repo for signup deploys — git clone → read zcp.json → orchestrate_deploy
