@@ -27,6 +27,7 @@ from apps.workflows.deploy import (
     modal_deploy_activity,
     fly_deploy_activity,
     cleanup_source_activity,
+    upsert_deployed_app_activity,
 )
 
 TASK_QUEUE = "zcp-signup"
@@ -48,6 +49,7 @@ async def main():
             modal_deploy_activity,
             fly_deploy_activity,
             cleanup_source_activity,
+            upsert_deployed_app_activity,
         ],
     )
     print(f"Worker started on task queue: {TASK_QUEUE}")

@@ -17,6 +17,7 @@ from apps.workflows.schemas import (
     ModalDeployInput, ModalDeployOutput,
     FlyDeployInput, FlyDeployOutput,
     CleanupSourceInput,
+    UpsertDeployedAppInput,
     ProjectDeployInput,
     DeployWorkflowInput, DeployWorkflowOutput,
     ProvisionNeonDatabaseInput, ProvisionNeonDatabaseOutput,
@@ -184,29 +185,25 @@ async def cleanup_source_activity(params: CleanupSourceInput) -> None:
         shutil.rmtree(path, ignore_errors=True)
 
 
-# ---------------------------------------------------------------------------
-# Helpers (pure functions, safe for activity context)
-# ---------------------------------------------------------------------------
-
-async def _get_org(org_id):
+@activity.defn
+async def upsert_deployed_app_activity(params: UpsertDeployedAppInput) -> None:
+    """Create or update the DeployedApp record after deploy completes."""
     from apps.organizations.models import Organization
-    return await Organization.objects.aget(id=org_id)
-
-
-async def _get_project(project_id):
-    from apps.projects.models import Project
-    return await Project.objects.aget(id=project_id)
-
-
-async def _upsert_deployed_app(org, app_name, urls, workflow_id, extra_kwargs):
     from apps.deployments.models import DeployedApp
+
+    org = await Organization.objects.aget(id=params.org_id)
+    extra_kwargs = {}
+    if params.project_id:
+        from apps.projects.models import Project
+        extra_kwargs["zcp_project"] = await Project.objects.aget(id=params.project_id)
+
     await DeployedApp.objects.aupdate_or_create(
         organization=org,
-        app_name=app_name,
+        app_name=params.app_name,
         defaults={
-            "service_urls": urls,
+            "service_urls": params.service_urls,
             "status": "ready",
-            "temporal_workflow_id": workflow_id,
+            "temporal_workflow_id": params.workflow_id,
             "metadata": {"deployed_via": "workflow"},
             **extra_kwargs,
         },
@@ -370,14 +367,18 @@ class DeployWorkflow:
             for result in results:
                 all_urls.update(result.service_urls)
 
-        # Create/update DeployedApp record (moved here from modal_deploy_activity
-        # so it captures URLs from both Modal and Fly.io)
-        org = await _get_org(params.org_id)
-        project_kwargs = {}
-        if project_result.project_id:
-            project_kwargs["zcp_project"] = await _get_project(project_result.project_id)
-        await _upsert_deployed_app(
-            org, f"{app_name}-{params.slug}", all_urls, wf_id, project_kwargs,
+        # Create/update DeployedApp record
+        await workflow.execute_activity(
+            upsert_deployed_app_activity,
+            UpsertDeployedAppInput(
+                org_id=params.org_id,
+                project_id=project_result.project_id,
+                app_name=f"{app_name}-{params.slug}",
+                service_urls=all_urls,
+                workflow_id=wf_id,
+            ),
+            start_to_close_timeout=timedelta(minutes=1),
+            retry_policy=RetryPolicy(maximum_attempts=3),
         )
 
         return DeployWorkflowOutput(

@@ -103,6 +103,14 @@ class FlyDeployOutput(BaseModel):
     service_urls: dict
 
 
+class UpsertDeployedAppInput(BaseModel):
+    org_id: str
+    project_id: str
+    app_name: str
+    service_urls: dict
+    workflow_id: str
+
+
 class CleanupSourceInput(BaseModel):
     source_path: str
 
