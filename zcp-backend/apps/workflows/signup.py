@@ -33,7 +33,9 @@ async def link_user_to_org_activity(params: LinkUserToOrgInput) -> None:
     from apps.organizations.models import Organization
     user = await User.objects.aget(id=params.user_id)
     org = await Organization.objects.aget(id=params.org_id)
-    await ResourceAccessMapping.objects.acreate(user=user, organization=org, role="owner")
+    await ResourceAccessMapping.objects.aget_or_create(
+        user=user, organization=org, defaults={"role": "owner"},
+    )
 
 
 @activity.defn
