@@ -126,8 +126,8 @@ async def modal_deploy_activity(params: ModalDeployInput) -> ModalDeployOutput:
             svc["runtime"] = detect_runtime(base_path)
         patched.append(svc)
 
-    # Two-pass Modal deploy
-    all_urls = _two_pass_deploy(params.app_name, params.slug, patched, source_path)
+    from apps.workflows.deploy_engine import run_deploy
+    all_urls = run_deploy(params.app_name, params.slug, patched, source_path)
 
     return ModalDeployOutput(service_urls=all_urls)
 
@@ -229,20 +229,14 @@ def _resolve_env(raw_env: list, provisioned: dict) -> list:
     return resolved
 
 
-def _two_pass_deploy(app_name, org_slug, services, app_root):
-    from apps.workflows.deploy_engine import run_deploy
-
-    non_next = [s for s in services if s.get("runtime") != "nextjs"]
-    next_svcs = [s for s in services if s.get("runtime") == "nextjs"]
-    web_non_next = [s for s in non_next if s.get("type", "web") == "web"]
-
-    if web_non_next and next_svcs:
-        backend_urls = run_deploy(app_name, org_slug, non_next, app_root)
-        api_url = backend_urls.get("api") or (list(backend_urls.values())[0] if backend_urls else None)
-        full_urls = run_deploy(app_name, org_slug, services, app_root, api_url=api_url)
-        return {**backend_urls, **full_urls}
-    else:
-        return run_deploy(app_name, org_slug, services, app_root)
+def _refs_compute_service(svc: dict, infra_ids: set) -> bool:
+    """Return True if this service has a fromService ref to a non-infra service (i.e. a compute URL)."""
+    for entry in svc.get("env", []):
+        if "fromService" in entry:
+            ref_id = entry["fromService"]["id"]
+            if ref_id not in infra_ids:
+                return True
+    return False
 
 
 # ---------------------------------------------------------------------------
@@ -314,58 +308,53 @@ class DeployWorkflow:
                     }
                 elif svc_type == "redis":
                     provisioned[svc["id"]] = {
-                        "connectionString": f"rediss://:{result.password}@{result.endpoint}:{result.port}",
                         "host": result.endpoint,
                         "port": str(result.port),
-                        "authToken": result.password,
-                        "restToken": result.rest_token,
+                        "password": result.password,
+                        "db": "0",
                     }
 
-        # 3. Deploy compute: Modal for web/worker, Fly.io for container
-        modal_services = [s for s in compute_services if s.get("type") != "container"]
-        container_services = [s for s in compute_services if s.get("type") == "container"]
-
-        deploy_tasks = []
-
-        if modal_services:
-            deploy_tasks.append(workflow.execute_activity(
-                modal_deploy_activity,
-                ModalDeployInput(
-                    org_id=params.org_id,
-                    project_id=project_result.project_id,
-                    slug=params.slug,
-                    app_name=app_name,
-                    compute_services=modal_services,
-                    provisioned=provisioned,
-                    source_path=params.source_path,
-                    workflow_id=wf_id,
-                ),
-                start_to_close_timeout=timedelta(minutes=15),
-                retry_policy=RetryPolicy(maximum_attempts=2),
-            ))
-
-        if container_services:
-            deploy_tasks.append(workflow.execute_activity(
-                fly_deploy_activity,
-                FlyDeployInput(
-                    org_id=params.org_id,
-                    project_id=project_result.project_id,
-                    slug=params.slug,
-                    app_name=app_name,
-                    container_services=container_services,
-                    provisioned=provisioned,
-                    source_path=params.source_path,
-                ),
-                start_to_close_timeout=timedelta(minutes=5),
-                retry_policy=RetryPolicy(maximum_attempts=2),
-            ))
-
-        # Run Modal + Fly deploys in parallel
+        # 3. Deploy compute services sequentially in manifest order.
+        # After each service deploys, its URL is added to `provisioned`
+        # so later services can resolve fromService refs to it.
         all_urls = {}
-        if deploy_tasks:
-            results = await asyncio.gather(*deploy_tasks)
-            for result in results:
-                all_urls.update(result.service_urls)
+        for svc in compute_services:
+            svc_type = svc.get("type", "web")
+            if svc_type == "container":
+                result = await workflow.execute_activity(
+                    fly_deploy_activity,
+                    FlyDeployInput(
+                        org_id=params.org_id,
+                        project_id=project_result.project_id,
+                        slug=params.slug,
+                        app_name=app_name,
+                        container_services=[svc],
+                        provisioned=provisioned,
+                        source_path=params.source_path,
+                    ),
+                    start_to_close_timeout=timedelta(minutes=5),
+                    retry_policy=RetryPolicy(maximum_attempts=2),
+                )
+            else:
+                result = await workflow.execute_activity(
+                    modal_deploy_activity,
+                    ModalDeployInput(
+                        org_id=params.org_id,
+                        project_id=project_result.project_id,
+                        slug=params.slug,
+                        app_name=app_name,
+                        compute_services=[svc],
+                        provisioned=provisioned,
+                        source_path=params.source_path,
+                        workflow_id=wf_id,
+                    ),
+                    start_to_close_timeout=timedelta(minutes=15),
+                    retry_policy=RetryPolicy(maximum_attempts=2),
+                )
+            all_urls.update(result.service_urls)
+            # Add deployed URL to provisioned so later services can reference it
+            if svc["id"] in result.service_urls:
+                provisioned[svc["id"]] = {"url": result.service_urls[svc["id"]]}
 
         # Create/update DeployedApp record
         await workflow.execute_activity(

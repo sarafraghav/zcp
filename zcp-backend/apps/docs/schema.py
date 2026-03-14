@@ -17,11 +17,12 @@ from pydantic import BaseModel, ConfigDict, Field
 
 class FromServiceRef(BaseModel):
     """Reference to an output field from another service."""
-    id: str = Field(description="The `id` of the infra service to reference (e.g. `maindb`, `cache`).")
+    id: str = Field(description="The `id` of the service to reference (infra or compute).")
     value: str = Field(description=(
         "The output field to read. "
         "Postgres: `connectionString`, `project_id`, `database_name`. "
-        "Redis: `connectionString`, `host`, `port`, `authToken`, `restToken`."
+        "Redis: `host`, `port`, `password`, `db`. "
+        "Web/Worker/Container (with port): `url` — the public HTTPS URL assigned after deploy."
     ))
 
 
@@ -138,7 +139,9 @@ class ZcpManifest(BaseModel):
 
     All infrastructure and compute resources are declared as entries in the
     `services` array. Infra services (postgres, redis) are provisioned first;
-    compute services (web, worker) reference infra outputs via `fromService`.
+    compute services (web, worker, container) are deployed sequentially in
+    manifest order. Each deployed compute service's URL is added to the
+    provisioned outputs, so later services can reference it via `fromService`.
     """
     name: str = Field(description="Application name. Used as the Modal app prefix (combined with org slug).")
     services: list[Service] = Field(description="List of infrastructure and compute service definitions.")

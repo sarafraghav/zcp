@@ -18,8 +18,16 @@
       {% csrf_token %}
       {% for field in form %}
         <div>
-          <label class="block text-xs font-medium text-muted mb-1.5 uppercase tracking-widest">{{ field.label }}</label>
-          {{ field }}
+          <label for="{{ field.id_for_label }}" class="block text-xs font-medium text-muted mb-1.5 uppercase tracking-widest">{{ field.label }}</label>
+          <input
+            type="{{ field.field.widget.input_type|default:'text' }}"
+            name="{{ field.html_name }}"
+            id="{{ field.id_for_label }}"
+            {% if field.value %}value="{{ field.value }}"{% endif %}
+            {% if field.field.required %}required{% endif %}
+            class="input-field{% if field.errors %} has-error{% endif %}"
+            {% if field.html_name == 'slug' %}placeholder="my-project"{% endif %}
+          >
           {% if field.help_text %}
             <p class="text-xs text-muted mt-1">{{ field.help_text }}</p>
           {% endif %}

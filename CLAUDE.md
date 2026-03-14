@@ -186,9 +186,9 @@ See `apps/workflows/fly_engine.py`. Fly.io runs Docker images natively — no Py
 | `container` (with port) | Public HTTPS via `*.fly.dev` | Fly Machine + shared IPv4 | Pre-built images needing HTTP (e.g. Kratos) |
 | `container` (no port) | None | Fly Machine (no services) | Pre-built images as background workers |
 
-**Two-pass deploy** (used when any service has `runtime: "nextjs"`):
-1. Pass 1: non-Next.js web services only → capture API URL
-2. Pass 2: all services with `NEXT_PUBLIC_API_URL` injected
+**Sequential deploy** — compute services are deployed one at a time in manifest order.
+After each service deploys, its URL is added to the `provisioned` dict so later services
+can reference it via `fromService` (e.g. `{"id": "api", "value": "url"}`).
 
 **Next.js build** happens at image-build time (`.run_commands("npm install", "npm run build")`), not at startup. `NEXT_PUBLIC_*` env vars must be set via `.env()` **before** `.run_commands()` to be baked into the bundle.
 
@@ -258,8 +258,11 @@ All resources — databases, caches, compute — are entries in the `services` a
       "port": 5001,
       "scaling": { "min": 1, "max": 3 },
       "env": [
-        { "name": "DATABASE_URL", "fromService": { "id": "maindb", "value": "dbConnectionString" } },
-        { "name": "REDIS_URL",    "fromService": { "id": "cache",  "value": "connectionString"  } },
+        { "name": "DATABASE_URL",  "fromService": { "id": "maindb", "value": "dbConnectionString" } },
+        { "name": "REDIS_HOST",    "fromService": { "id": "cache",  "value": "host"     } },
+        { "name": "REDIS_PORT",    "fromService": { "id": "cache",  "value": "port"     } },
+        { "name": "REDIS_PASSWORD","fromService": { "id": "cache",  "value": "password" } },
+        { "name": "REDIS_DB",     "fromService": { "id": "cache",  "value": "db"       } },
         { "name": "FLASK_ENV",    "value": "production" }
       ]
     },
@@ -296,17 +299,20 @@ All resources — databases, caches, compute — are entries in the `services` a
 
 ### `fromService` output fields
 
-Both infra types expose `connectionString` as the primary field. All values are strings.
+Infra types expose individual connection fields. Compute types expose `url` after deployment. All values are strings.
 
 | Service type | `value` field | Description |
 |--------------|--------------|-------------|
 | `postgres` | `connectionString` | Neon connection URI (`postgresql://...`) |
 | `postgres` | `project_id` | Neon project ID |
 | `postgres` | `database_name` | Neon database name |
-| `redis` | `connectionString` | `rediss://:<password>@<endpoint>:<port>` (TLS via Fly.io) |
 | `redis` | `host` | Fly.io endpoint hostname (`*.fly.dev`) |
 | `redis` | `port` | Port (as string, typically `6379`) |
-| `redis` | `authToken` | Redis password |
+| `redis` | `password` | Redis password |
+| `redis` | `db` | Redis database number (as string, default `0`) |
+| `web` | `url` | Public HTTPS URL (`https://<app>--<fn>.modal.run`) |
+| `worker` | `url` | Not available (workers have no HTTP endpoint) |
+| `container` | `url` | Public HTTPS URL (`https://<app>.fly.dev`) if port is set |
 
 ---
 

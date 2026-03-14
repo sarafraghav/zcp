@@ -147,7 +147,7 @@ def build_function_code(svc, runtime) -> str:
     )
 
 
-def generate_modal_code(app_name, org_slug, services, app_root: Path, api_url=None) -> str:
+def generate_modal_code(app_name, org_slug, services, app_root: Path) -> str:
     # Each org gets its own Modal app so deployments don't overwrite each other.
     modal_app_name = f"{app_name}-{org_slug}"
     lines = ["import modal", "", f'app = modal.App("{modal_app_name}")', ""]
@@ -155,16 +155,14 @@ def generate_modal_code(app_name, org_slug, services, app_root: Path, api_url=No
         base_path = app_root / svc.get("basePath", svc["id"])
         runtime = svc.get("runtime") or detect_runtime(base_path)
         env_vars = {e["name"]: e["value"] for e in svc.get("env", []) if "value" in e}
-        if runtime == "nextjs" and api_url:
-            env_vars["NEXT_PUBLIC_API_URL"] = api_url
         lines.append(build_image_code(svc["id"], runtime, base_path, env_vars))
         lines.append("")
         lines.append(build_function_code(svc, runtime))
     return "\n".join(lines)
 
 
-def run_deploy(app_name, org_slug, services, app_root: Path, api_url=None) -> dict:
-    code = generate_modal_code(app_name, org_slug, services, app_root, api_url)
+def run_deploy(app_name, org_slug, services, app_root: Path) -> dict:
+    code = generate_modal_code(app_name, org_slug, services, app_root)
     with tempfile.NamedTemporaryFile(mode="w", suffix=".py", delete=False, prefix="zcp_") as f:
         f.write(code)
         tmp_path = f.name
