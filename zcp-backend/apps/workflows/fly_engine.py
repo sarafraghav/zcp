@@ -1,12 +1,14 @@
 """
-Fly.io Deploy Engine — deploys pre-built container images via the Machines API.
+Fly.io Deploy Engine — deploys pre-built container images and Redis via the Machines API.
 
-Used for `container` service types in zcp.json. Unlike Modal (which requires Python
-in every image), Fly.io runs Docker images natively with full ENTRYPOINT/CMD support.
+Used for:
+  - `container` service types in zcp.json (pre-built registry images)
+  - `redis` infra services (replaces Upstash with self-hosted Redis on Fly)
 
 API reference: https://fly.io/docs/machines/api/machines-resource/
 """
 import base64
+import secrets
 import shlex
 import time
 
@@ -181,6 +183,90 @@ def _wait_for_machine(api_key: str, app_name: str, machine_id: str) -> None:
             raise RuntimeError(f"Fly machine {machine_id} entered state: {state}")
         time.sleep(2)
     raise RuntimeError(f"Fly machine {machine_id} did not start within {FLY_WAIT_TIMEOUT}s")
+
+
+def provision_redis(
+    api_key: str,
+    org_slug: str,
+    service_id: str,
+    region: str = "ord",
+) -> dict:
+    """
+    Provision a Redis instance on Fly.io.
+
+    Deploys redis:7-alpine with password auth, a persistent volume, and
+    public TCP access via Fly's TLS proxy (port 6379).
+
+    Returns dict with: fly_app, machine_id, endpoint, port, password.
+    """
+    fly_app = f"zcp-redis-{org_slug}-{service_id}".lower().replace("_", "-")
+    password = secrets.token_urlsafe(32)
+
+    # 1. Create Fly app
+    _create_app(api_key, fly_app)
+
+    # 2. Allocate IPs for public TCP access
+    _allocate_ips(api_key, fly_app)
+
+    # 3. Create persistent volume for Redis data
+    vol_resp = httpx.post(
+        f"{FLY_API_BASE}/apps/{fly_app}/volumes",
+        headers=_headers(api_key),
+        json={"name": "redis_data", "region": region, "size_gb": 1},
+        timeout=30,
+    )
+    if not vol_resp.is_success:
+        raise RuntimeError(f"Fly volume create failed ({vol_resp.status_code}): {vol_resp.text}")
+    vol_id = vol_resp.json()["id"]
+
+    # 4. Create Redis machine
+    machine_config = {
+        "image": "redis:7-alpine",
+        "guest": {
+            "cpu_kind": "shared",
+            "cpus": 1,
+            "memory_mb": 256,
+        },
+        "services": [
+            {
+                "ports": [{"port": 6379, "handlers": ["tls"]}],
+                "protocol": "tcp",
+                "internal_port": 6379,
+            }
+        ],
+        "mounts": [{"volume": vol_id, "path": "/data"}],
+        "init": {
+            "cmd": [
+                "redis-server",
+                "--requirepass", password,
+                "--bind", "0.0.0.0",
+                "--protected-mode", "no",
+                "--dir", "/data",
+                "--appendonly", "yes",
+            ]
+        },
+    }
+
+    resp = httpx.post(
+        f"{FLY_API_BASE}/apps/{fly_app}/machines",
+        headers=_headers(api_key),
+        json={"config": machine_config, "region": region},
+        timeout=60,
+    )
+    if not resp.is_success:
+        raise RuntimeError(f"Fly Redis machine create failed ({resp.status_code}): {resp.text}")
+    machine_id = resp.json()["id"]
+
+    # 5. Wait for machine to start
+    _wait_for_machine(api_key, fly_app, machine_id)
+
+    return {
+        "fly_app": fly_app,
+        "machine_id": machine_id,
+        "endpoint": f"{fly_app}.fly.dev",
+        "port": 6379,
+        "password": password,
+    }
 
 
 def destroy_app(api_key: str, app_name: str) -> None:

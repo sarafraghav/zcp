@@ -14,7 +14,7 @@ from django_htmx.http import HttpResponseClientRedirect
 from apps.accounts.models import User
 from apps.accounts.forms import SignupForm
 from apps.dashboard.forms import CreateOrgForm
-from apps.workflows.services import start_signup_workflow, start_project_deploy_workflow, get_workflow_status
+from apps.workflows.services import start_signup_workflow, start_project_deploy_workflow, start_project_redeploy_workflow, get_workflow_status
 from apps.dashboard.services import get_dashboard
 
 
@@ -206,7 +206,7 @@ class RedisListView(LoginRequiredMixin, View):
 
 class RedisCommandView(LoginRequiredMixin, View):
     def post(self, request, redis_id):
-        import httpx
+        import redis as redis_client
         from apps.redis.models import UpstashRedis
         from apps.accounts.models import ResourceAccessMapping
 
@@ -218,14 +218,20 @@ class RedisCommandView(LoginRequiredMixin, View):
         key = request.POST.get("key", "").strip()
         value = request.POST.get("value", "").strip()
 
-        url = f"https://{r.endpoint}/{command}/{key}"
-        if command == "SET" and value:
-            url += f"/{value}"
-
         try:
-            resp = httpx.get(url, headers={"Authorization": f"Bearer {r.rest_token}"}, timeout=10)
-            resp.raise_for_status()
-            result = resp.json()
+            conn = redis_client.Redis(
+                host=r.endpoint, port=r.port, password=r.password,
+                ssl=r.tls, decode_responses=True, socket_timeout=10,
+            )
+            if command == "GET":
+                val = conn.get(key)
+                result = {"result": val}
+            elif command == "SET" and value:
+                conn.set(key, value)
+                result = {"result": "OK"}
+            else:
+                result = {"result": None, "error": f"Unsupported command: {command}"}
+            conn.close()
             return render(request, "dashboard/_redis_result.html", {"result": result})
         except Exception as exc:
             return render(request, "dashboard/_redis_result.html", {"error": str(exc)})
@@ -284,6 +290,37 @@ class CreateProjectView(LoginRequiredMixin, View):
         result = asyncio.run(start_project_deploy_workflow(
             org_id=str(org.id),
             slug=project_slug,
+        ))
+        return render(request, "dashboard/create_project_status.html", {
+            "workflow_id": result.workflow_id,
+        })
+
+
+class RedeployProjectView(LoginRequiredMixin, View):
+    def post(self, request, project_id):
+        from apps.accounts.models import ResourceAccessMapping
+        from apps.projects.models import Project
+
+        project = get_object_or_404(Project, id=project_id)
+        org = project.organization
+
+        if not ResourceAccessMapping.objects.filter(
+            user=request.user, organization=org
+        ).exists():
+            return HttpResponseBadRequest("Access denied.")
+
+        # Find the slug from the deployed app for this project
+        deployed_app = org.deployed_apps.filter(zcp_project=project).first()
+        if deployed_app:
+            # Extract slug from app_name (format: "name-slug")
+            slug = deployed_app.app_name.replace(f"{project.name}-", "", 1)
+        else:
+            slug = org.slug
+
+        result = asyncio.run(start_project_redeploy_workflow(
+            org_id=str(org.id),
+            slug=slug,
+            project_id=str(project.id),
         ))
         return render(request, "dashboard/create_project_status.html", {
             "workflow_id": result.workflow_id,
@@ -383,15 +420,12 @@ class DeleteOrgView(LoginRequiredMixin, View):
                             timeout=30,
                         )
 
-                # Step 3 — Delete Upstash Redis instances
+                # Step 3 — Delete Fly.io Redis apps
                 _deletion_state[org_id_str]["step"] = 3
-                for rdb_id in redis_db_ids:
-                    if rdb_id:
-                        httpx.delete(
-                            f"https://api.upstash.com/v2/redis/database/{rdb_id}",
-                            auth=(settings.UPSTASH_EMAIL, settings.UPSTASH_API_KEY),
-                            timeout=30,
-                        )
+                from apps.workflows.fly_engine import destroy_app
+                for fly_app_name in redis_db_ids:
+                    if fly_app_name:
+                        destroy_app(settings.FLY_API_KEY, fly_app_name)
 
                 # Step 4 — Delete Django records (cascades to all related models)
                 _deletion_state[org_id_str]["step"] = 4

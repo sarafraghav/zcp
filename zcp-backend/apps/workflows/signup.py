@@ -94,11 +94,15 @@ async def provision_neon_database_activity(params: ProvisionNeonDatabaseInput) -
 
 @activity.defn
 async def provision_upstash_redis_activity(params: ProvisionRedisInput) -> ProvisionRedisOutput:
+    """Provision a Redis instance on Fly.io (replaces Upstash)."""
     from django.conf import settings
     from apps.redis.models import UpstashRedis
     from apps.organizations.models import Organization
+    from apps.workflows.fly_engine import provision_redis
 
     org = await Organization.objects.aget(id=params.org_id)
+
+    # Idempotent: if record already exists and is ready, return stored data
     try:
         r = await UpstashRedis.objects.aget(organization=org, service_id=params.service_id)
         if r.status == "ready":
@@ -117,28 +121,29 @@ async def provision_upstash_redis_activity(params: ProvisionRedisInput) -> Provi
             **project_kwargs,
         )
 
-    async with httpx.AsyncClient() as client:
-        response = await client.post(
-            "https://api.upstash.com/v2/redis/database",
-            auth=(settings.UPSTASH_EMAIL, settings.UPSTASH_API_KEY),
-            json={"database_name": f"zcp-{params.slug}", "platform": "aws", "primary_region": "us-east-1", "tls": True},
-            timeout=60.0,
-        )
-        response.raise_for_status()
-        data = response.json()
+    # Deploy Redis on Fly.io
+    result = provision_redis(
+        api_key=settings.FLY_API_KEY,
+        org_slug=params.slug,
+        service_id=params.service_id,
+    )
 
-    r.database_id = data["database_id"]
-    r.endpoint = data["endpoint"]
-    r.port = data["port"]
-    r.password = data["password"]
-    r.rest_token = data["rest_token"]
+    r.database_id = result["fly_app"]  # Store Fly app name for cleanup
+    r.endpoint = result["endpoint"]
+    r.port = result["port"]
+    r.password = result["password"]
+    r.rest_token = ""  # Not used for Fly Redis
+    r.tls = True  # Fly TLS proxy
     r.status = "ready"
-    r.metadata = {"database_id": data["database_id"], "endpoint": data["endpoint"]}
+    r.metadata = {"fly_app": result["fly_app"], "machine_id": result["machine_id"]}
     await r.asave()
 
     return ProvisionRedisOutput(
-        database_id=r.database_id, endpoint=r.endpoint,
-        port=r.port, password=r.password, rest_token=r.rest_token,
+        database_id=result["fly_app"],
+        endpoint=result["endpoint"],
+        port=result["port"],
+        password=result["password"],
+        rest_token="",
     )
 
 
