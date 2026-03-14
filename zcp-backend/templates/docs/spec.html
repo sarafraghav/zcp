@@ -37,11 +37,20 @@
       "basePath": "backend",
       "start": "gunicorn app:app --bind 0.0.0.0:5001 --workers 2",
       "port": 5001,
-      "scaling": { "min": 1, "max": 3 },
       "env": [
         { "name": "DATABASE_URL", "fromService": { "id": "maindb", "value": "connectionString" } },
-        { "name": "REDIS_URL",    "fromService": { "id": "cache",  "value": "connectionString" } },
-        { "name": "FLASK_ENV",    "value": "production" }
+        { "name": "REDIS_URL",    "fromService": { "id": "cache",  "value": "connectionString" } }
+      ]
+    },
+    {
+      "id": "kratos",
+      "type": "container",
+      "image": "oryd/kratos:v1.3.1",
+      "command": "serve --dev --config /etc/config/kratos/kratos.yml",
+      "port": 4433,
+      "configFiles": { "/etc/config/kratos/kratos.yml": "kratos/kratos.yml" },
+      "env": [
+        { "name": "DSN", "fromService": { "id": "maindb", "value": "connectionString" } }
       ]
     }
   ]
@@ -87,10 +96,13 @@
   <h2 class="text-lg font-semibold text-main mb-4">Service Types</h2>
   <p class="text-sm text-muted mb-4">
     All resources are entries in the <code class="code-chip">services</code> array, discriminated by the <code class="code-chip">type</code> field.
-    Infra services are provisioned first; compute services can reference their outputs via <code class="code-chip">fromService</code>.
+    Infra services (<code class="code-chip">postgres</code>, <code class="code-chip">redis</code>) are provisioned first.
+    Source-based compute (<code class="code-chip">web</code>, <code class="code-chip">worker</code>) deploys to Modal.
+    Pre-built images (<code class="code-chip">container</code>) and Redis deploy to Fly.io.
+    All compute services can reference infra outputs via <code class="code-chip">fromService</code>.
   </p>
 
-  <div class="grid gap-3 sm:grid-cols-2 lg:grid-cols-4 mb-6">
+  <div class="grid gap-3 sm:grid-cols-2 lg:grid-cols-5 mb-6">
     <button class="card text-left px-4 py-3 svc-tab active" data-target="svc-postgres"
             onclick="showSection(this, 'svc-postgres')">
       <div class="text-sm font-semibold text-main">postgres</div>
@@ -110,6 +122,11 @@
             onclick="showSection(this, 'svc-worker')">
       <div class="text-sm font-semibold text-main">worker</div>
       <div class="text-xs text-muted mt-0.5">Background process</div>
+    </button>
+    <button class="card text-left px-4 py-3 svc-tab" data-target="svc-container"
+            onclick="showSection(this, 'svc-container')">
+      <div class="text-sm font-semibold text-main">container</div>
+      <div class="text-xs text-muted mt-0.5">Pre-built image</div>
     </button>
   </div>
 
@@ -196,7 +213,7 @@
           <h3 class="text-sm font-semibold text-main">redis</h3>
           <span class="badge badge-neutral">Infrastructure</span>
         </div>
-        <p class="text-xs text-muted mt-1">Provisions an in-memory Redis cache.</p>
+        <p class="text-xs text-muted mt-1">Provisions a persistent Redis instance on Fly.io with TLS and password auth.</p>
       </div>
       <div class="p-5">
         <table class="w-full text-sm mb-6">
@@ -248,10 +265,6 @@
             <tr class="border-b divider">
               <td class="py-3 pr-4"><code class="code-chip">authToken</code></td>
               <td class="py-3 text-muted">Redis password</td>
-            </tr>
-            <tr>
-              <td class="py-3 pr-4"><code class="code-chip">restToken</code></td>
-              <td class="py-3 text-muted">REST API token</td>
             </tr>
           </tbody>
         </table>
@@ -447,6 +460,107 @@
   "basePath": ".",
   "start": "python -m apps.workflows.worker",
   "scaling": { "min": 1, "max": 1 }
+}</pre>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- container -->
+  <div id="svc-container" class="svc-section" style="display:none">
+    <div class="card-flush">
+      <div class="px-5 py-4 border-b divider" style="background:var(--surface-2)">
+        <div class="flex items-center justify-between">
+          <h3 class="text-sm font-semibold text-main">container</h3>
+          <span class="badge badge-neutral">Compute — Fly.io</span>
+        </div>
+        <p class="text-xs text-muted mt-1">Deploy a pre-built Docker image from any registry (Docker Hub, GHCR, etc.) to Fly.io. No source code or Dockerfile needed.</p>
+      </div>
+      <div class="p-5">
+        <table class="w-full text-sm">
+          <thead>
+            <tr class="text-left text-muted border-b divider">
+              <th class="pb-3 pr-4 font-medium">Field</th>
+              <th class="pb-3 pr-4 font-medium">Type</th>
+              <th class="pb-3 pr-4 font-medium">Required</th>
+              <th class="pb-3 pr-4 font-medium">Default</th>
+              <th class="pb-3 font-medium">Description</th>
+            </tr>
+          </thead>
+          <tbody class="text-main">
+            <tr class="border-b divider">
+              <td class="py-3 pr-4"><code class="code-chip">id</code></td>
+              <td class="py-3 pr-4 text-muted font-mono text-xs">string</td>
+              <td class="py-3 pr-4"><span class="badge badge-success">required</span></td>
+              <td class="py-3 pr-4 text-muted">—</td>
+              <td class="py-3 text-muted">Unique identifier.</td>
+            </tr>
+            <tr class="border-b divider">
+              <td class="py-3 pr-4"><code class="code-chip">type</code></td>
+              <td class="py-3 pr-4 text-muted font-mono text-xs">"container"</td>
+              <td class="py-3 pr-4"><span class="badge badge-success">required</span></td>
+              <td class="py-3 pr-4 text-muted">—</td>
+              <td class="py-3 text-muted">Must be <code class="code-chip">"container"</code>.</td>
+            </tr>
+            <tr class="border-b divider">
+              <td class="py-3 pr-4"><code class="code-chip">image</code></td>
+              <td class="py-3 pr-4 text-muted font-mono text-xs">string</td>
+              <td class="py-3 pr-4"><span class="badge badge-success">required</span></td>
+              <td class="py-3 pr-4 text-muted">—</td>
+              <td class="py-3 text-muted">Registry image reference. E.g. <code class="code-chip">oryd/kratos:v1.3.1</code>.</td>
+            </tr>
+            <tr class="border-b divider">
+              <td class="py-3 pr-4"><code class="code-chip">command</code></td>
+              <td class="py-3 pr-4 text-muted font-mono text-xs">string</td>
+              <td class="py-3 pr-4"><span class="badge badge-neutral">optional</span></td>
+              <td class="py-3 pr-4 text-muted text-xs">image default</td>
+              <td class="py-3 text-muted">Override Docker CMD (appended to ENTRYPOINT). E.g. <code class="code-chip">serve --config /etc/config/app.yml</code>.</td>
+            </tr>
+            <tr class="border-b divider">
+              <td class="py-3 pr-4"><code class="code-chip">port</code></td>
+              <td class="py-3 pr-4 text-muted font-mono text-xs">integer</td>
+              <td class="py-3 pr-4"><span class="badge badge-neutral">optional</span></td>
+              <td class="py-3 pr-4 text-muted">—</td>
+              <td class="py-3 text-muted">If set, expose as a public HTTPS endpoint on <code class="code-chip">*.fly.dev</code>. If omitted, run as a background worker.</td>
+            </tr>
+            <tr class="border-b divider">
+              <td class="py-3 pr-4"><code class="code-chip">configFiles</code></td>
+              <td class="py-3 pr-4 text-muted font-mono text-xs">object</td>
+              <td class="py-3 pr-4"><span class="badge badge-neutral">optional</span></td>
+              <td class="py-3 pr-4 text-muted font-mono text-xs">{}</td>
+              <td class="py-3 text-muted">Map of <code class="code-chip">{container_path: local_path}</code>. Files are injected into the machine at boot.</td>
+            </tr>
+            <tr class="border-b divider">
+              <td class="py-3 pr-4"><code class="code-chip">scaling</code></td>
+              <td class="py-3 pr-4 text-muted font-mono text-xs">Scaling</td>
+              <td class="py-3 pr-4"><span class="badge badge-neutral">optional</span></td>
+              <td class="py-3 pr-4 text-muted font-mono text-xs">{"min":1,"max":3}</td>
+              <td class="py-3 text-muted">Autoscaling bounds.</td>
+            </tr>
+            <tr>
+              <td class="py-3 pr-4"><code class="code-chip">env</code></td>
+              <td class="py-3 pr-4 text-muted font-mono text-xs">EnvVar[]</td>
+              <td class="py-3 pr-4"><span class="badge badge-neutral">optional</span></td>
+              <td class="py-3 pr-4 text-muted font-mono text-xs">[]</td>
+              <td class="py-3 text-muted">Environment variables. Supports <code class="code-chip">fromService</code> references.</td>
+            </tr>
+          </tbody>
+        </table>
+
+        <div class="mt-5">
+          <h4 class="text-xs font-semibold text-muted uppercase tracking-wide mb-2">Example — Ory Kratos (identity server)</h4>
+          <pre class="code-block text-sm leading-relaxed overflow-x-auto">{
+  "id": "kratos",
+  "type": "container",
+  "image": "oryd/kratos:v1.3.1",
+  "command": "serve --dev --config /etc/config/kratos/kratos.yml",
+  "port": 4433,
+  "configFiles": {
+    "/etc/config/kratos/kratos.yml": "kratos/kratos.yml"
+  },
+  "env": [
+    { "name": "DSN", "fromService": { "id": "maindb", "value": "connectionString" } }
+  ]
 }</pre>
         </div>
       </div>

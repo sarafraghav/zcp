@@ -303,11 +303,10 @@ Both infra types expose `connectionString` as the primary field. All values are 
 | `postgres` | `connectionString` | Neon connection URI (`postgresql://...`) |
 | `postgres` | `project_id` | Neon project ID |
 | `postgres` | `database_name` | Neon database name |
-| `redis` | `connectionString` | `rediss://:<password>@<endpoint>:<port>` |
-| `redis` | `host` | Upstash endpoint hostname |
-| `redis` | `port` | Port (as string) |
-| `redis` | `authToken` | Upstash password |
-| `redis` | `restToken` | Upstash REST API token |
+| `redis` | `connectionString` | `rediss://:<password>@<endpoint>:<port>` (TLS via Fly.io) |
+| `redis` | `host` | Fly.io endpoint hostname (`*.fly.dev`) |
+| `redis` | `port` | Port (as string, typically `6379`) |
+| `redis` | `authToken` | Redis password |
 
 ---
 
