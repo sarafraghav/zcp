@@ -23,6 +23,14 @@ def _py_id(svc_id: str) -> str:
     return svc_id.replace("-", "_").replace(".", "_")
 
 
+def _has_poetry_section(pyproject_path: Path) -> bool:
+    """Check if a pyproject.toml contains [tool.poetry] or [project] with poetry.lock."""
+    if not pyproject_path.exists():
+        return False
+    content = pyproject_path.read_text()
+    return "[tool.poetry]" in content
+
+
 def detect_runtime(base_path: Path) -> str:
     if (base_path / "Dockerfile").exists():
         return "docker"
@@ -47,19 +55,31 @@ def build_image_code(svc_id, runtime, base_path: Path, env_vars: dict) -> str:
     abs_path = str(base_path.resolve())
     env_str = json.dumps(env_vars) if env_vars else "{}"
     if runtime == "python":
-        reqs = base_path / "requirements.txt"
-        pkgs = []
-        if reqs.exists():
-            pkgs = [l.strip() for l in reqs.read_text().splitlines()
-                    if l.strip() and not l.startswith("#")]
-        all_pkgs = ["gunicorn"] + pkgs
-        pkgs_str = ", ".join(f'"{p}"' for p in all_pkgs)
         env_line = f'\n    .env({env_str})' if env_vars else ''
-        return (f'_{var}_image = (\n'
-                f'    modal.Image.debian_slim(python_version="3.11")\n'
-                f'    .pip_install({pkgs_str})\n'
-                f'    .add_local_dir("{abs_path}", "/app", copy=True){env_line}\n'
-                f')')
+        uses_poetry = (
+            (base_path / "poetry.lock").exists()
+            or _has_poetry_section(base_path / "pyproject.toml")
+        )
+        if uses_poetry:
+            return (f'_{var}_image = (\n'
+                    f'    modal.Image.debian_slim(python_version="3.11")\n'
+                    f'    .pip_install("poetry")\n'
+                    f'    .add_local_dir("{abs_path}", "/app", copy=True){env_line}\n'
+                    f'    .run_commands("cd /app && poetry config virtualenvs.create false && poetry install --no-interaction --no-ansi")\n'
+                    f')')
+        else:
+            reqs = base_path / "requirements.txt"
+            pkgs = []
+            if reqs.exists():
+                pkgs = [l.strip() for l in reqs.read_text().splitlines()
+                        if l.strip() and not l.startswith("#")]
+            all_pkgs = ["gunicorn"] + pkgs
+            pkgs_str = ", ".join(f'"{p}"' for p in all_pkgs)
+            return (f'_{var}_image = (\n'
+                    f'    modal.Image.debian_slim(python_version="3.11")\n'
+                    f'    .pip_install({pkgs_str})\n'
+                    f'    .add_local_dir("{abs_path}", "/app", copy=True){env_line}\n'
+                    f')')
     elif runtime in ("nextjs", "nodejs"):
         # CRITICAL: .env() BEFORE .run_commands() so NEXT_PUBLIC_* vars are baked
         # into the Next.js bundle at image-build time.
